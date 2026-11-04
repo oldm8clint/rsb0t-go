@@ -39,8 +39,8 @@
 </head>
 <body>
 <main>
-  <h1>rsb0t-go setup</h1>
-  <p class="lead">Choose your server, add your accounts, choose what each one does, then press Start. Passwords stay on this computer, in <code id="home">the rsb0t-data folder</code>, and are never shown again.</p>
+  <h1 id="title">rsb0t-go setup</h1>
+  <p class="lead" id="lead">Choose your server, add your accounts, choose what each one does, then press Start. Passwords stay on this computer, in <code id="home">the rsb0t-data folder</code>, and are never shown again.</p>
   <div id="msg" role="status" aria-live="polite"></div>
 
   <section aria-labelledby="srvh">
@@ -100,6 +100,7 @@
 
   <div class="actions">
     <button id="start" disabled>Start the panel</button>
+    <label id="skipwrap" hidden style="font-weight:400;margin:0"><input type="checkbox" id="skip"> Start straight away next time (<code>rsb0t forget</code> brings this page back)</label>
     <span class="help" id="starthelp">Choose a server and add at least one account first. To look around without either, close this page and the rsb0t window, then start the demo (the README's "Try the demo first" says how).</span>
   </div>
 </main>
@@ -161,6 +162,8 @@ function render() {
   const ready = state.accounts.length > 0 && !!state.server;
   $("start").disabled = !ready;
   $("starthelp").hidden = ready;
+  $("skipwrap").hidden = !ready;
+  $("skip").checked = !!state.skipSetup;
   const cur = $("current");
   if (state.server) {
     cur.textContent = "Using " + (state.server.address || state.server.httpBase) + " (game connection " + state.server.wsURL + ")" +
@@ -305,12 +308,12 @@ $("srvform").onsubmit = ev => {
 
 $("start").onclick = async () => {
   try {
-    await api("POST", "/api/setup/start", {});
+    await api("POST", "/api/setup/start", { skipSetup: $("skip").checked });
     document.body.innerHTML = "<main><h1>Starting the panel</h1><p class='lead' id='wait'>This page will move to the panel in a few seconds. If it does not, open <a href='/'>the same address</a> again.</p></main>";
     const began = Date.now();
     setTimeout(function wait() {
       if (Date.now() - began > 30000) {
-        document.getElementById("wait").textContent = "The panel has not started after 30 seconds. Look at the window where rsb0t is running: its last lines say what went wrong (for example the server could not be reached). Fix that, then run rsb0t again.";
+        document.getElementById("wait").textContent = "The panel has not started after 30 seconds. Look at the window where rsb0t is running, or at last-run.log in the rsb0t-data folder: the last lines say what went wrong (for example the server could not be reached). Fix that, then run rsb0t again.";
       }
       fetch("/api/status").then(r => r.ok ? location.reload() : setTimeout(wait, 1000)).catch(() => setTimeout(wait, 1000));
     }, 2500);
@@ -318,7 +321,14 @@ $("start").onclick = async () => {
 };
 
 (async () => {
-  try { state = await api("GET", "/api/setup/state"); render(); }
+  try {
+    state = await api("GET", "/api/setup/state");
+    render();
+    if (state.server && state.accounts.length) {
+      $("title").textContent = "Welcome back";
+      $("lead").firstChild.textContent = "Your server, accounts, scripts and settings are remembered. Press Start the panel, or change anything below first. Passwords stay on this computer, in ";
+    }
+  }
   catch (e) { say("Could not load the setup state: " + e.message, true); }
 })();
 </script>

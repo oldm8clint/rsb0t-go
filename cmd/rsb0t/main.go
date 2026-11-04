@@ -1,6 +1,6 @@
 // Command rsb0t is the one program: it keeps a data folder, starts the panel and opens it.
 //
-//	rsb0t                       start the panel on http://127.0.0.1:7274/ (and open it)
+//	rsb0t                       the start page on http://127.0.0.1:7274/, with everything remembered, then the panel
 //	rsb0t demo [N] [-- ...]     a simulated fleet of N accounts (default 12): nothing connects to a game
 //	rsb0t setup [-server ADDR]  the first-run page: server, accounts, scripts and settings in the browser, then Start
 //	rsb0t server ADDRESS        check a game server and save it in the roster (no address: show the current one)
@@ -10,6 +10,7 @@
 //	rsb0t account list          list the accounts and the script each starts with
 //	rsb0t account script NAME SCRIPT   choose the script an account starts with (empty for none)
 //	rsb0t account remove NAME   remove an account and its stored password
+//	rsb0t forget                forget the remembered panel options and show the start page again
 //	rsb0t scripts               list the scripts this build has
 //	rsb0t version
 //
@@ -17,10 +18,11 @@
 // website or of one world (https://example-server.com, w1.example-server.com, localhost:8888) and rsb0t
 // works out the rest. A server key that cannot be found is pasted with -modulus and -exponent.
 //
-// Everything lives in one folder, rsb0t-data next to where the program is started (or -data DIR, or the
-// RSB0T_HOME variable): fleet.config.json (the roster), credentials.json (passwords, this machine only),
-// and what the panel saves (layout, statistics, travel heat map). Anything after `--` on the panel
-// command is passed to the panel unchanged, so every panel flag still works:
+// Everything lives in one folder, rsb0t-data beside the program (an rsb0t-data already in the working
+// directory wins; or -data DIR, or the RSB0T_HOME variable): fleet.config.json (the roster), credentials.json
+// (passwords, this machine only), options.json (the options below) and what the panel saves (layout,
+// statistics, travel heat map). Anything after `--` on the panel command is passed to the panel unchanged,
+// and remembered for the next start, so every panel flag still works:
 //
 //	rsb0t -- -listen 127.0.0.1:9000 -watchdog act
 //
@@ -28,7 +30,10 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
+	"io"
+	"log"
 	"os"
 	"path/filepath"
 	"runtime/debug"
@@ -40,11 +45,20 @@ import (
 	"rsb0t-go/internal/controlpanelapp"
 )
 
+// logFile is the last run's log, in the data folder.
+const logFile = "last-run.log"
+
 // version is set at build time (-ldflags "-X main.version=v1.2.3"); a plain build reports its commit.
 var version = ""
 
 func main() {
-	os.Exit(run(os.Args[1:]))
+	code := run(os.Args[1:])
+	if code != 0 && len(os.Args) == 1 {
+		// A double-click: the window closes with the program, and the error with it.
+		fmt.Print("\nPress Enter to close this window.")
+		_, _ = bufio.NewReader(os.Stdin).ReadString('\n')
+	}
+	os.Exit(code)
 }
 
 func run(args []string) int {
@@ -117,6 +131,13 @@ func run(args []string) int {
 			fmt.Println(n)
 		}
 		return 0
+	case "forget":
+		if err := os.Remove(filepath.Join(home, optionsFile)); err != nil && !os.IsNotExist(err) {
+			fmt.Fprintln(os.Stderr, "rsb0t:", err)
+			return 1
+		}
+		fmt.Println("rsb0t: forgot the panel options and the start page choice; your server, accounts and settings stay")
+		return 0
 	case "version", "-v", "--version":
 		fmt.Println("rsb0t", versionString())
 		return 0
@@ -132,7 +153,7 @@ func run(args []string) int {
 func usage() {
 	fmt.Fprint(os.Stderr, `rsb0t-go (said "RS bot go"); the program is called rsb0t: a headless client and panel for a RuneScape 2 (revision 289) server
 
-  rsb0t                      start the panel and open it in the browser
+  rsb0t                      the start page, with everything remembered, then the panel
   rsb0t demo [N]             a simulated fleet of N accounts; connects to nothing
   rsb0t setup [-server ADDRESS]
                              the first-run page (server, accounts, scripts, settings), then start
@@ -149,28 +170,31 @@ func usage() {
   rsb0t account list         list accounts
   rsb0t account script NAME SCRIPT
   rsb0t account remove NAME
+  rsb0t forget                forget the remembered panel options and show the start page again
   rsb0t scripts              list the scripts in this build
   rsb0t version
 
 options (before the command):
-  -data DIR                  the data folder (default: $RSB0T_HOME, else ./rsb0t-data)
+  -data DIR                  the data folder (default: $RSB0T_HOME, else rsb0t-data beside the program)
   -no-browser                do not open the browser
 
-Anything after -- goes to the panel unchanged:  rsb0t -- -listen 127.0.0.1:9000
+Anything after -- goes to the panel unchanged and is remembered:  rsb0t -- -listen 127.0.0.1:9000
 
 The server must be a RuneScape 2 revision-289 server (one built on the LostCity engine, for example);
 other revisions will not work. Use rsb0t only on accounts you own, where the server's rules allow it.
 `)
 }
 
-// dataDir is the data folder: -data, else RSB0T_HOME, else rsb0t-data in the working directory.
+// dataDir is the data folder: -data, else RSB0T_HOME, else chooseDataDir.
 func dataDir(flagValue string) string {
 	d := flagValue
 	if d == "" {
 		d = os.Getenv("RSB0T_HOME")
 	}
 	if d == "" {
-		d = "rsb0t-data"
+		cwd, _ := os.Getwd()
+		cfg, _ := os.UserConfigDir()
+		d = chooseDataDir(cwd, programDir(), cfg)
 	}
 	if abs, err := filepath.Abs(d); err == nil {
 		return abs
@@ -192,12 +216,21 @@ func versionString() string {
 	return "dev"
 }
 
-// serve starts the panel on the roster in home. With no account yet it says how to add one.
+// serve starts on the roster in home: the start page when a person is there to press Start, else the panel. With no
+// server or account yet it is the first run. Panel options given are remembered, and used again when none are.
 func serve(home string, panelArgs []string, noBrowser bool) int {
 	roster, err := ensureRoster(home)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "rsb0t:", err)
 		return 1
+	}
+	panelArgs = rememberPanelArgs(home, panelArgs)
+	if addr := listenAddr(panelArgs); alreadyRunning(addr) {
+		fmt.Printf("rsb0t: already running at http://%s/\n", addr)
+		if !noBrowser {
+			openBrowser("http://" + addr + "/")
+		}
+		return 0
 	}
 	if !roster.hasServer() {
 		fmt.Printf("rsb0t: no game server chosen yet in %s, so this is a first run\n", filepath.Join(home, rosterFile))
@@ -209,7 +242,14 @@ func serve(home string, panelArgs []string, noBrowser bool) int {
 		fmt.Println("  (or: `rsb0t account add NAME` to add one here, `rsb0t demo` to look around first)")
 		return setup(home, panelArgs, noBrowser)
 	}
-	return launch(home, panelArgs, noBrowser, false)
+	o, err := loadOptions(home)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "rsb0t:", err)
+	}
+	if noBrowser || o.SkipSetup {
+		return launch(home, panelArgs, noBrowser, false)
+	}
+	return setup(home, panelArgs, noBrowser)
 }
 
 // setup opens the first-run page and, once it says Start, runs the panel on what was set up.
@@ -262,6 +302,10 @@ func launch(home string, extra []string, noBrowser, fake bool) int {
 	if err := os.Chdir(home); err != nil {
 		fmt.Fprintln(os.Stderr, "rsb0t:", err)
 		return 1
+	}
+	// The log also goes to a file, where it survives a window that closes when the program stops.
+	if f, err := os.Create(logFile); err == nil {
+		log.SetOutput(io.MultiWriter(os.Stderr, f))
 	}
 	args := []string{os.Args[0]}
 	if !fake {

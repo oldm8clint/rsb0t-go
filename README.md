@@ -64,9 +64,19 @@ You do not need to know anything about programming for this. It takes about five
 7. **Press Start the panel.** The setup page turns into the panel: one card per account, showing it logging in
    and then what it is doing. That is it.
 
-To stop, close the black window (or press `Ctrl+C` in it): every account logs out. Next time, double-click
-`rsb0t` again and it goes straight to the panel. To change your server or accounts later, or to try the
-demo, start rsb0t with a word after it, as the next section shows.
+To stop, close the black window (or press `Ctrl+C` in it): every account logs out.
+
+### Starting it again
+
+Double-click `rsb0t` again. A **Welcome back** page opens with everything remembered: your server, accounts,
+passwords, scripts and settings. Press **Start the panel**, or change anything on the page first. If you never
+want to see that page, tick **Start straight away next time**; `rsb0t forget` brings it back.
+
+Panel options you type after `--`, such as `rsb0t -- -listen 127.0.0.1:9000`, are remembered too, so you only
+type them once. If rsb0t is already running, starting it again just opens the panel.
+
+If something goes wrong after the window has closed, the last run's log is `last-run.log` in the `rsb0t-data`
+folder. To try the demo, start rsb0t with a word after it, as the next section shows.
 
 ### Starting rsb0t with a word after it (setup, demo, ...)
 
@@ -120,12 +130,15 @@ rsb0t                                           # start the panel
 key you pasted. If the game is on another address, add `-game wss://<that address>/`. A key you paste is kept
 as it is: if the server changes its key later (some do when they restart), paste the new one.
 
-Everything lives in one folder, `rsb0t-data`, next to where you start the program (`-data DIR` or the
-`RSB0T_HOME` variable move it):
+Everything lives in one folder, `rsb0t-data`, beside the program, so moving the program's folder moves your
+settings with it (`-data DIR` or the `RSB0T_HOME` variable put it elsewhere, and an `rsb0t-data` already in the
+folder you start from is used first):
 
 | File | What it is |
 |---|---|
 | `fleet.config.json` | The roster: the server, login pace, accounts and their scripts and settings. Never a password. |
+| `options.json` | Your remembered panel options, and whether to skip the Welcome back page. |
+| `last-run.log` | The last run's log. |
 | `credentials.json` | Passwords, by login name, in plain text. On Linux and macOS only your user can read it; on Windows it has the folder's usual permissions, so keep the folder in your own user folder. Never share or commit it. |
 | `panel-layout.json`, `stats-state.json`, `heatmap.json.gz` ... | What the panel saves between runs |
 

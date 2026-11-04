@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"rsb0t-go/internal/bot"
+	"rsb0t-go/internal/serverprobe"
 	"rsb0t-go/internal/settings"
 )
 
@@ -45,7 +46,7 @@ func runSetup(home, addr string, noBrowser bool) bool {
 	srv := &http.Server{Handler: s.handler(), ReadHeaderTimeout: 10 * time.Second}
 	go srv.Serve(ln)
 	url := "http://" + addr + "/"
-	fmt.Printf("rsb0t: first-run setup is at %s (choose your server and add your accounts there, then press Start)\n", url)
+	fmt.Printf("rsb0t: the start page is at %s (your server, accounts and settings are there; press Start)\n", url)
 	if !noBrowser {
 		go openWhenUp(url)
 	}
@@ -231,7 +232,11 @@ func (s *setupServer) snapshot() (map[string]any, error) {
 		}
 		accts = append(accts, accountInfo{Username: a.name(), Script: a.script(), HasPassword: creds.passwordFor(a.name()) != "", Settings: st})
 	}
-	out := map[string]any{"accounts": accts, "scripts": s.scripts(), "home": s.home, "hasMapData": r.str("packPath") != ""}
+	o, err := loadOptions(s.home)
+	if err != nil {
+		return nil, err
+	}
+	out := map[string]any{"accounts": accts, "scripts": s.scripts(), "home": s.home, "hasMapData": r.str("packPath") != "", "skipSetup": o.SkipSetup}
 	if r.hasServer() {
 		out["server"] = r.server()
 	}
@@ -428,6 +433,36 @@ func (s *setupServer) startPanel(w http.ResponseWriter, r *http.Request) {
 	}
 	if len(ro.accounts()) == 0 {
 		fail(w, 400, "add at least one account first, or close this page and run `rsb0t demo`")
+		return
+	}
+	creds, err := loadCredentials(s.home)
+	if err != nil {
+		fail(w, 500, "%v", err)
+		return
+	}
+	for _, a := range ro.accounts() {
+		if creds.passwordFor(a.name()) == "" {
+			fail(w, 400, "%s has no password yet: remove it under Your accounts and add it again with its password", a.name())
+			return
+		}
+	}
+	// The panel stops at once when the server cannot be reached, and a double-click's window closes with it: say so here.
+	if rep := checkServer(ro.server().Address, serverprobe.Options{GameURL: ro.str("wsURL")}); !rep.GameFilesOK {
+		fail(w, 502, "the server is not answering, so nothing was started: %s", rep.Verdict)
+		return
+	}
+	var body struct {
+		SkipSetup bool `json:"skipSetup"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&body)
+	o, err := loadOptions(s.home)
+	if err != nil {
+		fail(w, 500, "%v", err)
+		return
+	}
+	o.SkipSetup = body.SkipSetup
+	if err := saveOptions(s.home, o); err != nil {
+		fail(w, 500, "%v", err)
 		return
 	}
 	writeJSON(w, 200, map[string]bool{"starting": true})

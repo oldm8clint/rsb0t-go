@@ -10,6 +10,8 @@ import (
 	"testing"
 
 	"rsb0t-go/internal/bot"
+
+	"rsb0t-go/internal/serverprobe"
 )
 
 // call makes a request with the header and content type the page sends.
@@ -116,8 +118,22 @@ func TestSetupStartNeedsAnAccount(t *testing.T) {
 	if err := ro.save(); err != nil {
 		t.Fatal(err)
 	}
-	if code, _ := call(t, h, "POST", "/api/setup/start", `{}`); code != 200 {
+	old := checkServer
+	defer func() { checkServer = old }()
+	checkServer = func(string, serverprobe.Options) serverprobe.Report {
+		return serverprobe.Report{Verdict: "offline"}
+	}
+	if code, out := call(t, h, "POST", "/api/setup/start", `{}`); code != 502 || !strings.Contains(out["error"].(string), "offline") {
+		t.Fatalf("start with the server down was %d %v, want 502", code, out)
+	}
+	checkServer = func(string, serverprobe.Options) serverprobe.Report {
+		return serverprobe.Report{GameFilesOK: true}
+	}
+	if code, _ := call(t, h, "POST", "/api/setup/start", `{"skipSetup":true}`); code != 200 {
 		t.Fatalf("start was %d", code)
+	}
+	if o, err := loadOptions(s.home); err != nil || !o.SkipSetup {
+		t.Fatalf("the start page choice was not saved: %+v %v", o, err)
 	}
 	select {
 	case <-s.start:
