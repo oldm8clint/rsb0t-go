@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Read the agent guide first
+    url: https://github.com/oldm8clint/rsb0t-go/blob/main/AGENTS.md
+    about: Architecture, gotchas and lessons live in AGENTS.md and docs/agents/. Many questions are answered there.

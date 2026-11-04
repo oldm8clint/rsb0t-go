@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Lost City GPU geometry lab</title><link rel="stylesheet" href="style.css"><script type="module" src="gpu-model-viewer.js"></script></head>
+<body><h1>GPU geometry lab</h1>
+<p>Historical item models drawn as WebGL triangles. Static opaque colour faces only; this is not a live game client.</p>
+<p>Requires a capture adapter build containing itemGpuMesh(). No account or login is used.</p>
+<div class="controls"><label>Historical item ID <input id="item" type="number" min="0" max="100000" value="1079"></label><button id="load" type="button">Load native model</button>
+<label>Rotate <input id="yaw" type="range" min="-3.14" max="3.14" step="0.02" value="0.6"></label></div>
+<p id="status" role="status">Load a model on demand. No animation loop runs in this prototype.</p>
+<canvas id="gpu" class="gpu-model-canvas" aria-label="GPU historical model preview"></canvas>
+<!-- Reference decoder initializes only after Load, against this hidden canvas. -->
+<canvas id="canvas" width="765" height="503" hidden></canvas>
+</body></html>

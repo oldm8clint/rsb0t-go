@@ -1,0 +1,43 @@
+# Build output
+/bin/
+/dist/
+*.exe
+*.exe~
+*.test
+
+# The program's own data folder: rosters, passwords, saved layouts, statistics. Never commit it.
+/rsb0t-data/
+fleet.config.json
+fleet.config.*.json
+!fleet.config.example.json
+credentials*.json
+credentials*.txt
+accounts*.txt
+settings.json
+settings.*.json
+!settings.example.json
+proxies.json
+proxies.*.json
+!proxies.example.json
+*.token
+.env
+.env.*
+
+# Logs and what the panel saves
+*.log
+/logs/
+panel-layout.json
+bank-state.json
+heatmap*.json.gz
+stats-state*.json
+stats-fake*.json
+script-assignments*.json
+mule-ledger*.jsonl
+
+# Generated game data (collision pack, loc index, config archive): built locally, not committed
+*.lcnav
+*.lcnav.gz
+*.lcli
+*.lcli.gz
+*.jag
+__pycache__/

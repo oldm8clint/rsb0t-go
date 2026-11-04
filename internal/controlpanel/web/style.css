@@ -1,0 +1,1096 @@
+/* The Control page's palette and chrome, restyled to actually read as a 2004-era RuneScape
+   page rather than a generic dark dashboard.
+   Tokens below are not invented — they are lifted directly from two real references:
+     1. https://2004bot.com's own live CSS (this project's own marketing site) — its ".b"/".b2"
+        boxes are plain `border-style: outset; border-width: 3pt` in exactly these colours, its
+        .formbtn is the same red (#570700) with a stone-texture image behind it, its .logo is an
+        italic bold serif in gold (#e7c15a) with a dark/gold text-shadow, and its inputs are a
+        parchment fill (#dcd3c1) with dark ink text (#1c1408) — all pulled with getComputedStyle
+        against the live site, not eyeballed from a screenshot.
+     2. content/textures/pebblefloor.png and content/sprites/{chatback,compass,invback}.png — real
+        extracted 2004scape client assets (MIT-licensed, LostCityRS Content repo), used verbatim
+        below as the page's stone-floor background and a couple of period-accurate accents, the
+        same way the skills grid already uses real extracted skill icon sprites.
+   The Wayback Machine's archive of runescape.com circa 2004 was not reachable from this session's
+   network (web.archive.org / archive.org both refused every request, one with a 429) — see
+   COLLAB.md for the exact attempts. 2004bot.com and the LostCityRS Engine's own client.ejs (this
+   repo's "provided website in the lost city repo", `engine/view/client.ejs` — black background,
+   Arial, #04A800 green links/loading text) were used instead, and agree with each other closely
+   enough (black ground, green monospace/HUD accents, stone/red outset chrome) that they read as
+   one consistent period source rather than a guess. */
+:root {
+    /* Real 2004bot.com values (getComputedStyle against the live site). */
+    --steel: #373737;      /* .b border colour */
+    --steel-edge: #232323;
+    --red: #570700;        /* .b2 / .formbtn */
+    --red-edge: #3a0500;
+    --red-light: #8a0f00;
+    --edge: #382418;       /* .e border — the warm dark-brown frame colour */
+    --parchment: #dcd3c1;  /* input background */
+    --parchment-ink: #1c1408; /* input text */
+    --gold: #e7c15a;       /* .logo colour */
+    --gold-dim: #a98a3f;
+    --white: #ffffff;
+    --red-text: #e10505;
+    --lblue: #9db8c3;
+    --dblue: #0d6083;
+    --yellow: #ffe139;
+    --green: #04a800;      /* also engine/view/client.ejs's own .green link colour */
+    --purple: #c503fd;
+    --pink: #faa8aa;
+
+    /* App semantics, mapped onto the palette above rather than kept separate. */
+    --ground: #0b0a08;
+    --stone: #201c16;
+    --stone-2: #171410;
+    --edge-light: var(--steel);
+    --edge-dark: var(--steel-edge);
+    --text: #d8cfba;
+    --dim: #8c8371;
+    --good: var(--green);
+    --warn: var(--yellow);
+    --bad: var(--red-text);
+    --plot: #14110c;
+    --grid: #2a251c;
+    --s1: #3987e5;
+    --s2: #d95926;
+    --s3: #199e70;
+    --s4: #c98500;
+    --s5: #d55181;
+    --s6: #6fd5c5;
+    --row: 84px;
+    --gap: 8px;
+    color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html { background: var(--ground); }
+body {
+    margin: 0;
+    padding: 10px;
+    background:
+        linear-gradient(rgba(6, 5, 4, 0.86), rgba(6, 5, 4, 0.86)),
+        url('chrome/pebblefloor.png');
+    background-size: auto, 128px 128px;
+    background-attachment: fixed;
+    color: var(--text);
+    font: 12px/1.45 Arial, Helvetica, sans-serif;
+}
+[hidden] { display: none !important; }
+
+.dashboard-nav {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    padding: 7px 10px;
+    margin-bottom: 10px;
+    background: var(--stone);
+    border: 1px solid var(--edge-light);
+}
+.dashboard-nav select { max-width: min(320px, 100%); }
+.window { scroll-margin-top: 64px; }
+.window:focus { outline: 2px solid var(--gold); outline-offset: 2px; }
+#addmenu input { width: 100%; margin-bottom: 8px; }
+.cpu-trend { width: 100%; height: 64px; display: block; border-bottom: 1px solid var(--grid); }
+.account-filters { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
+.account-filters input { flex: 1; min-width: 140px; }
+.body table th { position: sticky; top: 0; background: var(--stone); z-index: 1; }
+@media (max-width: 700px) {
+    .dashboard-nav { position: static; }
+    .window { scroll-margin-top: 8px; }
+}
+
+/* The nav row's own boxed-section frame, vendored straight from 2004bot.com's real assets
+   (fetched live from the site, not re-derived): a soft dark 9-slice corner/edge vignette
+   (fm-*.gif — small, mostly-black pieces; the account owner's guess that these were literally
+   "chain" imagery didn't hold up on inspection, they're a subtle table-based frame shadow, said
+   plainly rather than claiming otherwise) over stoneback.gif, the same tileable dark stone
+   texture the reference site uses for its own boxed sections/tab backgrounds. Classic 8-image
+   9-slice: 4 fixed corners, 4 repeating edges, layered with CSS multiple backgrounds since these
+   were shipped as 8 separate files rather than one sliceable sheet. */
+header {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 10px;
+    padding: 8px 10px;
+    background-color: #1c1712;
+    background-image:
+        url('chrome/stoneback.gif'),
+        url('chrome/fm-topleft.gif'), url('chrome/fm-topright.gif'),
+        url('chrome/fm-bottomleft.gif'), url('chrome/fm-bottomright.gif'),
+        url('chrome/fm-top.gif'), url('chrome/fm-bottom.gif'),
+        url('chrome/fm-left.gif'), url('chrome/fm-right.gif');
+    background-position:
+        center,
+        top left, top right,
+        bottom left, bottom right,
+        top center, bottom center,
+        center left, center right;
+    background-repeat:
+        repeat,
+        no-repeat, no-repeat,
+        no-repeat, no-repeat,
+        repeat-x, repeat-x,
+        repeat-y, repeat-y;
+    border: 1px solid var(--edge-dark);
+}
+h1 {
+    margin: 0;
+    font: italic bold 20px/1 'Georgia', 'Times New Roman', serif;
+    color: var(--gold);
+    letter-spacing: 0.5px;
+    text-shadow: var(--edge) 1px 1px 0, #000 -1px -1px 0, rgba(231, 193, 90, 0.3) 0 2px 10px;
+}
+.spacer { flex: 1; }
+#note { color: var(--dim); font-size: 11px; }
+#note.bad { color: var(--warn); }
+.pill { font-size: 11px; padding: 0 7px; border: 1px solid var(--edge-light); color: var(--dim); background: rgba(0, 0, 0, 0.3); }
+.pill.live { color: var(--good); border-color: var(--good); }
+.pill.lost { color: var(--warn); border-color: var(--warn); }
+.pill.unauthorized { color: var(--bad); border-color: var(--bad); }
+.pill.fast { color: var(--warn); border-color: var(--warn); }
+
+/* Whole-fleet process controls (Stop/Restart/Start) — deliberately separate from any
+   one panel: these affect every connected account at once, the same "everyone, not one
+   account" distinction account.js's own per-account Start/Stop already draws in its own
+   tooltips. Grouped in the header next to +add panel/edit layout/reset since all six are
+   "controls for the page/process as a whole", not fleet data. */
+.fleetcontrols { display: flex; align-items: center; gap: 6px; padding: 0 8px; border-left: 1px solid var(--edge-light); border-right: 1px solid var(--edge-light); }
+#fleetnote { color: var(--dim); font-size: 11px; max-width: 260px; }
+#fleetnote.bad { color: var(--warn); }
+/* Restart = white, per the account owner's own colour spec: the one steel button that
+   gets a bright, unmissable label instead of the muted parchment every other plain
+   button uses, without going all the way to the red "this is destructive" treatment
+   Stop gets (button.primary, already the site's one red-stone colour — see its own
+   comment above). */
+button.fleet-restart { color: var(--white); font-weight: bold; }
+button.fleet-restart:hover { color: var(--yellow); }
+/* Start can never be a real button — see index.html's own tooltip on it and
+   cmd/controlpanel/main.go's doc comment: if the fleet process is not already running,
+   there is no server here to have served this page, or this button, at all. Kept
+   visible and clearly labelled rather than silently omitted, so the page honestly shows
+   all three concepts (Start/Stop/Restart) and explains the one it cannot do — dashed
+   border reads as "placeholder", distinct from a button that is merely temporarily
+   disabled (stop/restart while Config.OnStopAll/OnRestartAll are unwired, e.g. this
+   build's own tests, use the plain button:disabled treatment already in this file). */
+button.fleet-start { border-style: dashed; cursor: not-allowed; }
+button.fleet-start:disabled { opacity: 0.55; }
+
+button, select, input { font: inherit; }
+
+/* 2004bot.com's own ".b"/".formbtn" technique, verbatim: an outset border in a flat colour,
+   nothing image-based needed to read as "stone panel button" at this size. Plain buttons get the
+   steel-grey treatment (.b); .primary gets the red-stone treatment (.formbtn/.b2) for the one or
+   two actions per panel that actually matter — Start, Apply, Run — same visual hierarchy the
+   reference site uses for its one red "Run it" button against everything else in steel-grey. */
+button {
+    background: var(--steel);
+    color: var(--text);
+    border-style: outset;
+    border-width: 2px;
+    border-color: var(--steel);
+    border-bottom-color: var(--steel-edge);
+    border-right-color: var(--steel-edge);
+    padding: 4px 10px;
+    cursor: pointer;
+}
+button:hover { color: var(--yellow); }
+button:active { border-style: inset; }
+button:disabled { cursor: default; opacity: 0.5; }
+button.is-active { color: var(--gold); border-color: var(--gold); }
+/* The real shinystonered.jpg texture 2004bot.com's own .formbtn uses under its red "Run it"
+   button (fetched live and vendored, same technique — a colour fill under a texture image, not
+   a substitute for it), with the real ssredbright.jpg tab texture swapped in on press so a click
+   has its own distinct "pushed in" material instead of just an outline flip. */
+button.primary, .actions button:last-child {
+    background-color: var(--red);
+    background-image: url('chrome/shinystonered.jpg');
+    background-size: cover;
+    border-color: var(--red);
+    border-bottom-color: var(--red-edge);
+    border-right-color: var(--red-edge);
+    color: var(--white);
+    font-weight: bold;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+button.primary:hover, .actions button:last-child:hover { color: var(--yellow); }
+button.primary:active, .actions button:last-child:active { background-image: url('chrome/ssredbright.jpg'); }
+
+select, input[type=text], input[type=number], input[type=password] {
+    background: var(--parchment);
+    color: var(--parchment-ink);
+    border: 2px solid var(--edge);
+    padding: 3px 5px;
+}
+select:focus, input:focus { outline: 1px solid var(--gold); }
+
+#addmenu { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+#addmenu button { width: 230px; text-align: left; }
+#addmenu b { display: block; font-weight: normal; color: var(--gold); }
+#addmenu small { display: block; color: var(--dim); }
+
+/* Twelve columns and as many fixed-height rows as the panels need; see layout.js for the rules. */
+#grid { position: relative; display: grid; gap: var(--gap); grid-template-columns: repeat(12, minmax(0, 1fr)); grid-auto-rows: var(--row); }
+#cells { position: absolute; inset: 0; z-index: 0; display: none; gap: var(--gap); grid-template-columns: repeat(12, minmax(0, 1fr)); grid-auto-rows: var(--row); pointer-events: none; }
+#cells div { border: 1px dashed var(--edge-light); }
+body.is-editing #cells { display: grid; }
+#ghost { z-index: 6; pointer-events: none; border: 2px dashed var(--good); background: rgba(4, 168, 0, 0.12); }
+#ghost.is-clash { border-color: var(--warn); background: rgba(255, 225, 57, 0.12); }
+#empty { color: var(--dim); }
+
+/* The stone window frame: a flat panel fill plus the same outset-border trick as buttons, so
+   every rectangle on the page (panels, buttons, dialogs) reads as one consistent stonework
+   material — the same discipline the 2004bot.com reference itself keeps between .b/.b2 boxes
+   and .formbtn. */
+.window {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+    padding: 6px 9px 9px;
+    background-color: var(--stone);
+    background-image: linear-gradient(rgba(20, 17, 12, 0.86), rgba(20, 17, 12, 0.86)), url('chrome/stoneback.gif');
+    background-size: auto, 96px 96px;
+    border-style: outset;
+    border-width: 2px;
+    border-color: var(--steel);
+    border-bottom-color: var(--steel-edge);
+    border-right-color: var(--steel-edge);
+    box-shadow: 0 2px 0 rgba(0, 0, 0, 0.4), inset 0 0 0 1px rgba(0, 0, 0, 0.5);
+    transition: transform 160ms ease;
+}
+/* Each panel's own title bar as a real "grey tab" — the account owner's own words: "the API
+   doc reference source github etc has the grey background tab we want for the panel", which on
+   2004bot.com is ssgreybright.gif (fetched live and vendored, same as the frame above). A dark
+   overlay keeps the gold title text at full contrast over the texture. */
+.window h2 {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    margin: -6px -9px 6px;
+    padding: 5px 9px 4px;
+    border-bottom: 1px solid var(--edge-dark);
+    background-image: linear-gradient(rgba(10, 9, 7, 0.72), rgba(10, 9, 7, 0.72)), url('chrome/ssgreybright.gif');
+    background-size: auto, 64px 64px;
+    font-size: 12px;
+    color: var(--gold);
+    white-space: nowrap;
+}
+.window h2 .title, .window h2 .sub { overflow: hidden; text-overflow: ellipsis; }
+.window h2 .sub { font-size: 11px; font-weight: normal; color: var(--dim); }
+
+/* Real bitmap-font rendering (bitmapfont.js) — the wordmark and panel title bars draw
+   glyphs from the project's own extracted client font sheets (content/fonts/*_full.png,
+   vendored under chrome/fonts/ with their magenta chroma-key turned into real alpha) onto
+   a small canvas per label, instead of a regular @font-face (these sheets are pre-rendered
+   glyph grids, not a font file format). `.sr-only` keeps the real text available to
+   assistive tech and search/copy-paste; the canvas is presentation-only. */
+.sr-only {
+    position: absolute;
+    width: 1px; height: 1px;
+    padding: 0; margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+canvas.bmfont {
+    display: inline-block;
+    vertical-align: middle;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+}
+h1 canvas.bmfont { height: 20px; }
+.window h2 .title canvas.bmfont { height: 18px; }
+.tools { display: flex; gap: 3px; margin-left: auto; }
+.tools button { padding: 0 6px; line-height: 16px; }
+.window .body { position: relative; flex: 1; min-height: 0; overflow: auto; }
+
+.drop, .grip { display: none; }
+body.is-editing .drop { display: inline-block; }
+body.is-editing .grip { position: absolute; right: 1px; bottom: 1px; z-index: 3; display: block; width: 14px; height: 14px; cursor: nwse-resize; border-right: 3px solid var(--gold); border-bottom: 3px solid var(--gold); }
+body.is-editing .window { cursor: move; }
+body.is-editing .window .body { pointer-events: none; opacity: 0.7; }
+.window.is-dragging { z-index: 5; transition: none; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.6); }
+.window.is-clash { outline: 2px solid var(--warn); }
+@media (prefers-reduced-motion: reduce) { .window { transition: none; } }
+@media (max-width: 860px) {
+    #grid { display: flex; flex-direction: column; }
+    .window { height: calc(var(--h, 2) * var(--row)); }
+    #cells, #ghost, .grip { display: none !important; }
+}
+
+.none { color: var(--dim); }
+.control { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 6px; }
+.control select { max-width: 16em; }
+.control .none { flex-basis: 100%; margin: 0; }
+.control .bad { color: var(--bad); }
+h3 { margin: 8px 0 3px; font-size: 11px; font-weight: normal; color: var(--dim); text-transform: uppercase; letter-spacing: 0.5px; }
+.kv { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 1px 10px; margin: 0; }
+.kv dt { color: var(--dim); }
+.kv dd { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 4px; margin-bottom: 6px; }
+.tile { padding: 2px 6px; background: rgba(0, 0, 0, 0.25); border: 1px solid var(--edge-dark); }
+.tile b { display: block; font-size: 18px; font-weight: normal; color: var(--text); }
+
+/* A state is a dot and a word, never the colour alone. */
+.st { white-space: nowrap; }
+.st::before { content: ''; display: inline-block; width: 7px; height: 7px; margin-right: 4px; border-radius: 50%; vertical-align: 1px; background: var(--c, var(--dim)); box-shadow: 0 0 3px var(--c, transparent); }
+.st-ingame { --c: var(--good); }
+.st-queued, .st-connecting { --c: var(--gold); }
+.st-reconnecting { --c: var(--warn); }
+.st-error { --c: var(--bad); }
+
+table { width: 100%; border-collapse: collapse; }
+th { position: sticky; top: 0; padding: 0 8px 3px 0; background: var(--stone); color: var(--dim); font-weight: normal; text-align: left; border-bottom: 1px solid var(--edge); }
+td { max-width: 26ch; padding: 2px 8px 2px 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border-top: 1px solid var(--edge-dark); }
+tbody tr[data-name] { cursor: pointer; }
+tbody tr[data-name]:hover td { color: var(--yellow); }
+tr.sel td { color: var(--gold); }
+td.num { text-align: right; }
+/* The "at a glance" columns (state/bot state/activity/primary skill) read as the compact status
+   strip users asked for — bold and full-brightness; everything else (since/packets/
+   staff level/reconnects/last error — the stuff you only care about once you've clicked in) stays
+   visibly secondary so the strip doesn't turn into a wall of equally-loud text. */
+td.headline { font-weight: bold; color: var(--text); }
+td.secondary { color: var(--dim); }
+.gained-inline { color: var(--good); font-weight: bold; }
+
+/* A real extracted chatbox-parchment texture (content/sprites/chatback.png) behind the log
+   feeds, darkened enough that the text above stays perfectly legible — a subtle nod to the
+   classic client's own chat window rather than a flat rectangle. */
+.feed {
+    background:
+        linear-gradient(rgba(11, 10, 8, 0.93), rgba(11, 10, 8, 0.93)),
+        url('chrome/chatback.png');
+    background-size: cover;
+}
+.feed .line { display: flex; gap: 6px; white-space: nowrap; padding: 0 3px; }
+.feed.wrap .line { white-space: normal; }
+.feed .line > span { flex: none; }
+.feed .line .msg { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.feed .t { color: var(--dim); }
+.feed .who { color: var(--gold); }
+.lv-debug .msg { color: var(--dim); }
+.lv-warn .msg { color: var(--warn); }
+.lv-error .msg { color: var(--bad); }
+.feed:empty::after { content: 'nothing yet'; color: var(--dim); }
+
+.chart { position: absolute; inset: 0; display: flex; flex-direction: column; gap: 3px; }
+.legend { display: flex; flex-wrap: wrap; gap: 1px 12px; font-size: 11px; color: var(--dim); }
+.legend b, .tip b { font-weight: normal; color: var(--text); }
+.legend i, .tip i { display: inline-block; width: 12px; height: 3px; margin-right: 4px; border-radius: 2px; vertical-align: middle; }
+.plot { position: relative; flex: 1; min-height: 40px; }
+.plot canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.tip { position: absolute; z-index: 2; padding: 3px 7px; font-size: 11px; white-space: nowrap; pointer-events: none; background: var(--edge-dark); border: 1px solid var(--edge-light); color: var(--dim); }
+.tip .t { color: var(--text); }
+.foot { font-size: 11px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+dialog {
+    width: min(520px, 94vw);
+    max-height: 86vh;
+    padding: 12px 14px;
+    background:
+        linear-gradient(rgba(10, 8, 6, 0.82), rgba(10, 8, 6, 0.82)),
+        url('chrome/invback.png');
+    background-size: cover;
+    color: var(--text);
+    border-style: outset;
+    border-width: 2px;
+    border-color: var(--steel);
+}
+dialog::backdrop { background: rgba(0, 0, 0, 0.65); }
+dialog h3 { margin-top: 0; font-size: 13px; color: var(--gold); text-transform: none; letter-spacing: 0; }
+dialog label.row { display: flex; align-items: center; gap: 8px; margin: 5px 0; }
+dialog label.row > span { min-width: 12em; color: var(--dim); }
+dialog fieldset { margin: 8px 0; padding: 4px 8px 8px; border: 1px solid var(--edge); }
+dialog legend { color: var(--dim); }
+.checks { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 1px 8px; max-height: 170px; overflow: auto; }
+.checks label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.actions { display: flex; justify-content: flex-end; gap: 6px; margin-top: 10px; }
+
+textarea { font: inherit; color: var(--text); background: var(--ground); border: 2px solid var(--edge); padding: 3px 5px; resize: vertical; }
+.rows { display: flex; flex-direction: column; gap: 5px; margin-bottom: 6px; }
+.rows label { display: flex; align-items: center; gap: 8px; }
+.rows label > span { min-width: 9em; color: var(--dim); }
+.rows input[type=text], .rows input[type=password], .rows select { flex: 1; min-width: 0; }
+.settingsbox { width: 100%; min-height: 5em; font-family: 'Consolas', monospace; }
+.mulefield { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; color: var(--dim); }
+.mulefield input { flex: 1; min-width: 0; color: var(--text); }
+
+#addmenu .tag { color: var(--warn); }
+ul.needs { margin: 4px 0 0; padding-left: 18px; color: var(--dim); }
+ul.needs li { margin-bottom: 3px; }
+.slots { display: flex; flex-wrap: wrap; gap: 3px; margin: 2px 0 6px; }
+.slot { padding: 0 4px; font-size: 11px; border: 1px solid var(--edge-dark); }
+
+/* Task 1 (agent/panelvisuals): the full, fixed-order Skills tab — every skill, real game order,
+   real icon sprites where this build has confirmed one (see internal/spritepack), a monogram
+   tile otherwise. The running script's own trained skill (internal/bot.PrimarySkill) gets a gold
+   accent so it still stands out at a glance within the complete grid. Shared by the account
+   detail panel and the dedicated Skills panel (panels/skills.js, agent/panelrestyle) so both
+   read identically. */
+.skillsgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 4px; margin: 2px 0 10px; }
+.skillcell { display: flex; align-items: center; gap: 6px; padding: 4px 6px; background: rgba(0, 0, 0, 0.28); border: 1px solid var(--edge-light); border-bottom-color: var(--edge-dark); border-right-color: var(--edge-dark); }
+.skillcell.is-primary {
+    grid-column: span 2;
+    background: linear-gradient(180deg, rgba(231, 193, 90, 0.22), rgba(231, 193, 90, 0.07));
+    border-color: var(--gold);
+    border-bottom-color: #6e5320;
+    border-right-color: #6e5320;
+    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.3) inset;
+    padding: 6px 8px;
+}
+.skill-icon { display: inline-flex; flex: none; }
+.skill-icon svg, .skill-icon img { display: block; image-rendering: pixelated; width: 26px; height: 26px; }
+.skillcell.is-primary .skill-icon svg, .skillcell.is-primary .skill-icon img { width: 34px; height: 34px; }
+.skill-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.3; }
+.skill-name { font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.skillcell.is-primary .skill-name { color: var(--gold); font-weight: bold; font-size: 12px; }
+.skill-stats { font-size: 10px; color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.skill-stats.none { font-style: italic; }
+/* The account owner flagged this by name: XP gained this session was easy to miss, squeezed onto
+   the same line as level/total XP and prone to the ellipsis clipping it. It's now its own line,
+   bold, in the app's "good"/positive green, sized up further on the primary-skill cell (the one
+   that matters most at a glance) — and never truncated, wrapping onto a second line rather than
+   being cut off if the number gets long. */
+.skill-gained { font-size: 11px; font-weight: bold; color: var(--good); white-space: normal; overflow-wrap: anywhere; }
+.skillcell.is-primary .skill-gained { font-size: 13px; text-shadow: 0 0 6px rgba(4, 168, 0, 0.35); }
+
+/* Task 2 (agent/panelvisuals): category-icon inventory chips (see itemicons.js for what the icon
+   is/isn't). Each category gets its own soft background tint and accent border so the grid reads
+   as organised-by-kind at a glance. */
+/* itemgrid's own backdrop is the real extracted inventory-panel texture (chrome/invback.png,
+   the same asset the restyle pass above uses elsewhere) rather than a flat fill, so the bank
+   and inventory grids read as an actual RuneScape backpack/bank interface at a glance — real
+   per-item sprites are a separate, larger gap (see itemicons.js's own doc comment and
+   COLLAB.md for why: this content build's item icons are rendered at runtime from 3D models,
+   not stored as named sprites anywhere in the client cache, confirmed live against the
+   running engine's own media.jag). */
+.itemgrid { display: flex; flex-wrap: wrap; gap: 5px; margin: 3px 0 9px; padding: 6px; background: url('chrome/invback.png') center/cover; border: 1px solid var(--edge-light); border-bottom-color: var(--edge-dark); border-right-color: var(--edge-dark); }
+.item { display: flex; align-items: center; gap: 5px; padding: 3px 8px 3px 3px; background: rgba(0, 0, 0, 0.28); border: 1px solid var(--edge-light); border-bottom-color: var(--edge-dark); border-right-color: var(--edge-dark); font-size: 11px; max-width: 16em; transition: transform 90ms ease, box-shadow 90ms ease, border-color 90ms ease; }
+.item:hover { transform: translateY(-1px); box-shadow: 0 3px 8px rgba(0, 0, 0, 0.45); border-color: var(--gold); cursor: default; z-index: 1; position: relative; }
+.item-icon { display: inline-flex; flex: none; }
+.item-icon svg, .item-icon img { display: block; image-rendering: pixelated; width: 26px; height: 26px; }
+.item-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.item-count { flex: none; color: var(--dim); }
+.item-food { background: rgba(160, 68, 52, 0.18); border-color: #7a3a2c; }
+.item-currency { background: rgba(230, 197, 101, 0.18); border-color: #a9832f; }
+.item-rune { background: rgba(157, 123, 196, 0.18); border-color: #6a4f8f; }
+.item-potion { background: rgba(111, 143, 79, 0.18); border-color: #4f6f3a; }
+.item-resource { background: rgba(107, 74, 38, 0.22); border-color: #6b4a26; }
+.item-tool { background: rgba(154, 154, 154, 0.16); border-color: #6a6a6a; }
+.item-equip { background: rgba(58, 85, 104, 0.24); border-color: #3a5568; }
+.item-clue { background: rgba(160, 56, 48, 0.18); border-color: var(--warn); }
+.item-misc { background: rgba(138, 106, 63, 0.16); }
+
+/* Task 3 (agent/panelvisuals): the account map panel — a coordinate scatter plot, not a rendered
+   game map. compass.png (a real extracted client sprite) sits in the corner as a period-accurate
+   accent, sized small enough it can't be mistaken for an actual working compass control. */
+.mapwrap { position: relative; width: 100%; height: 100%; }
+.mapwrap canvas { position: absolute; inset: 0; width: 100%; height: 100%; cursor: pointer; }
+.mapwrap .tip { position: absolute; z-index: 2; }
+/* 2026-09-16: Surface/Underground/Other toggle (map.js's areaCtl) — fixes accounts on a
+   different real level either being plotted against the wrong background image or vanishing,
+   see map.js's own top-of-file doc comment for the actual bug. Small pills over the top-left
+   corner of the canvas so they read as map chrome, not a separate control bar. */
+.mapwrap .arealevel { position: absolute; top: 4px; left: 4px; z-index: 2; display: flex; gap: 4px; }
+.mapwrap .arealevel button { font-size: 11px; padding: 2px 7px; background: rgba(0, 0, 0, 0.45); }
+/* 2026-09-16 follow-up: the real Leaflet tile map (map.js's leafletEl/drawLeaflet), shown
+   instead of the canvas once the server reports a generated tile pyramid (store.meta.mapTiles)
+   — see map.js's own LEAFLET_JS doc comment. Sized identically to .mapwrap canvas above so the
+   two are interchangeable; --plot is the same dark fill the canvas path already uses for "no
+   data here" so an unindexed area (outside every mapsquare) reads the same in both modes. */
+.mapwrap .mapleaflet { position: absolute; inset: 0; width: 100%; height: 100%; background: var(--plot); }
+.mapwrap .mapleaflet .leaflet-tile { image-rendering: pixelated; }
+.maptip { background: var(--edge-dark); border: 1px solid var(--edge-light); color: var(--text); font-size: 11px; }
+/* 2026-09-16 follow-up: account markers moved from a plain L.circleMarker to an L.marker +
+   divIcon (map.js's markerIcon) so co-located accounts (same real tile) can be nudged apart by
+   a constant SCREEN-pixel offset via iconAnchor — a circleMarker's centre is fixed to its
+   LatLng with no such per-marker pixel control. */
+.acct-marker { background: none; border: none; }
+.acct-dot { border-radius: 50%; border-width: 2px; border-style: solid; box-shadow: 0 0 4px rgba(0, 0, 0, 0.85); cursor: pointer; }
+/* Location name labels (map.js's LOCATIONS) — plain text, no pin/box, so a cluster of nearby
+   names doesn't read as a wall of chrome over real terrain. text-shadow keeps them legible over
+   both bright (desert) and dark (water, cave) terrain without a background plate. */
+.maplabel { color: #fff; font-size: 12px; font-weight: 600; text-shadow: 0 0 3px #000, 0 0 3px #000, 1px 1px 1px #000; white-space: nowrap; pointer-events: none; transform: translate(-50%, -50%); }
+.mapwrap::after {
+    content: '';
+    position: absolute;
+    right: 4px;
+    bottom: 4px;
+    width: 28px;
+    height: 28px;
+    background: url('chrome/compass.png') center/contain no-repeat;
+    opacity: 0.55;
+    pointer-events: none;
+}
+
+/* agent/panelrestyle: the dedicated Skills panel (panels/skills.js) — one shared grid instead of
+   a copy per account card, with its own account picker. */
+.skillspanel-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }
+.skillspanel-head select { min-width: 12em; }
+.skillspanel-total { margin-left: auto; font-size: 11px; color: var(--dim); white-space: nowrap; }
+.skillspanel-total b { color: var(--gold); font-weight: normal; }
+.skillspanel-gained { color: var(--good); font-weight: bold; }
+
+/* agent/panelrestyle: the hiscores lookup panel (panels/hiscores.js) — a text box, a button, and
+   a link out to example.invalid's real per-player hiscores page. */
+.hiscores-row { display: flex; gap: 6px; margin-bottom: 8px; }
+.hiscores-row input { flex: 1; min-width: 0; }
+.hiscores-link { display: inline-flex; align-items: center; gap: 6px; padding: 5px 9px; background: rgba(0, 0, 0, 0.28); border: 1px solid var(--edge); color: var(--lblue); text-decoration: none; word-break: break-all; }
+.hiscores-link:hover { color: var(--yellow); border-color: var(--gold); }
+.hiscores-recent { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
+.hiscores-recent button { font-size: 11px; padding: 2px 7px; }
+
+/* Chat feed panel (chat.js) and alerts digest panel (alerts.js) — additive only, kept
+   small and namespaced so this doesn't collide with the concurrent restyle pass also
+   touching this file tonight (see COLLAB.md). Uses the same var() tokens the restyle
+   pass above redefined (--ground/--edge-light/--edge-dark/--gold/--bad/--warn/--dim),
+   so these panels pick up the period-accurate palette automatically. */
+.chatfeed .line.chatline .msg { color: var(--text); }
+.chatfeed .who { color: var(--gold); }
+
+.alertlist { display: flex; flex-direction: column; gap: 3px; }
+.alert { display: flex; align-items: center; gap: 7px; padding: 3px 7px; background: rgba(0, 0, 0, 0.28); border: 1px solid var(--edge-light); border-bottom-color: var(--edge-dark); border-right-color: var(--edge-dark); font-size: 11px; }
+.alert .who { flex: none; color: var(--gold); }
+.alert .msg { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.alert .t { flex: none; color: var(--dim); }
+.sev-dot { display: inline-block; flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--c, var(--dim)); }
+.alert.sev-crit { border-left: 3px solid var(--bad); }
+.alert.sev-crit .sev-dot { --c: var(--bad); }
+.alert.sev-warn { border-left: 3px solid var(--warn); }
+.alert.sev-warn .sev-dot { --c: var(--warn); }
+.alert.sev-info .sev-dot { --c: var(--dim); }
+
+/* Combined bank panel (bankall.js) — one section per account (or, in merged mode, one
+   flat itemgrid with an account tag per chip). Reuses .itemgrid/.item from account.js/
+   bank.js's own conventions, just adds the per-account section chrome around it. */
+.bankall-wrap { display: flex; flex-direction: column; gap: 10px; }
+.bankall-section { display: flex; flex-direction: column; }
+.bankall-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 3px; }
+.bankall-head .who { color: var(--gold); font-weight: bold; }
+.item-account { flex: none; color: var(--dim); font-size: 10px; padding-left: 3px; border-left: 1px solid var(--edge-light); margin-left: 2px; }
+
+/* Combined bank: value and banked-experience chrome (2026-09-20). The summary strip is
+   deliberately loud about WHERE a price came from — a total that is mostly a high-alchemy
+   estimate has to look like one, so the source bar sits directly under the figure and each
+   segment is coloured by its own source rather than by the panel's accent. */
+.bankall-summary { display: flex; flex-wrap: wrap; align-items: stretch; gap: 8px; margin: 0 8px 8px; }
+.bankall-tile { flex: 1 1 150px; min-width: 130px; padding: 6px 8px; background: #2c271bcc; border: 1px solid var(--edge-light); border-bottom-color: var(--edge-dark); border-right-color: var(--edge-dark); }
+.bankall-tile-label { color: var(--dim); font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; }
+.bankall-tile-big { color: var(--gold); font-size: 17px; font-weight: bold; line-height: 1.2; }
+.bankall-tile.xp .bankall-tile-big { color: #7fd47f; }
+.bankall-tile-sub { color: var(--dim); font-size: 11px; overflow-wrap: anywhere; }
+.bankall-srcbar { flex: 1 0 100%; display: flex; height: 6px; background: #1c190f; border: 1px solid var(--edge-dark); }
+.bankall-src-market { background: #6fbf5f; }
+.bankall-src-alch { background: #d0a63c; }
+.bankall-src-cost { background: #8a7a5a; }
+.bankall-from { flex: 1 0 100%; color: var(--dim); font-size: 11px; overflow-wrap: anywhere; }
+.bankall-headsum { flex: none; color: #d8cfae; font-size: 11px; }
+/* The detail card. A 42px bank square has room for an icon and a count badge and nothing
+   else, so as soon as a price or an experience figure is shown the slot becomes a card:
+   icon on the left, name above, count/worth/XP on one line under it. Switching both figures
+   off in the panel's settings returns the original icon-only grid above, untouched. */
+.bank-grid.bank-detail { grid-template-columns: repeat(auto-fill, minmax(152px, 1fr)); gap: 3px; }
+.bank-grid.bank-detail .bank-slot { height: auto; min-height: 40px; justify-content: flex-start; gap: 6px; padding: 3px 5px; text-align: left; }
+.bank-grid.bank-detail .bank-slot .item-icon { flex: none; }
+.bank-grid.bank-detail .bank-slot .item-name { position: static; width: auto; height: auto; clip: auto; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: #e8dcb6; font-size: 11px; }
+.bank-grid.bank-detail .bank-slot .item-count { position: static; color: #ffff00; font-size: 11px; text-shadow: none; }
+.bank-lines { display: flex; flex-direction: column; min-width: 0; gap: 1px; }
+.bank-meta { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; font-size: 10px; }
+.bank-meta .item-xp { color: #7fd47f; }
+.bank-meta .item-xp.blocked { color: #b8813f; }
+.item-worth.src-market { color: #9ee98c; }
+.item-worth.src-alch { color: #f0c455; }
+.item-worth.src-cost { color: #c8b98f; }
+.item-worth.src-none { color: #a0655a; }
+/* The GPU renderer's own host box. Only present while that renderer is picked, so the DOM
+   path keeps the panel body's ordinary scrolling untouched. */
+.window .body.bankbody { overflow: hidden; display: flex; flex-direction: column; }
+.bankall-gpu { position: relative; flex: 1 1 auto; min-height: 120px; }
+.bankall-gpu > .gputable { position: absolute; inset: 0; height: auto; }
+
+/* The ground-model stage. ONE canvas for the whole panel, pinned over the scrolling grid and
+   filling each card's icon box by viewport/scissor (see loot-gl.js) — a context per item would
+   exhaust the browser's ~16-context budget within one screenful. The canvas takes no pointer
+   events, so hover, focus, tooltips and text selection all still belong to the DOM underneath. */
+.bankall-stage { position: relative; flex: 1 1 auto; min-height: 120px; }
+.bankall-stage > .bankall-wrap { position: absolute; inset: 0; overflow: auto; }
+.bankall-modelcanvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 2; }
+/* A model needs more room than a 26px sprite, and the box it gets is the stage it is framed
+   into. The icon itself stays in that box until its model has decoded, so nothing pops. */
+.bank-models-on .bank-grid .item-icon { width: 76px; height: 76px; display: flex; align-items: center; justify-content: center; }
+.bank-models-on .bank-grid.bank-detail { grid-template-columns: repeat(auto-fill, minmax(208px, 1fr)); }
+.bank-models-on .bank-grid.bank-detail .bank-slot { min-height: 80px; }
+
+/* Hiscores panel (hiscores.js) — the real example.invalid skill/rank/xp table, rendered
+   natively (see internal/controlpanel/hiscores.go for why: no JSON API to call
+   instead, this is a server-side parse of the same public page hiscores.js used to
+   only link to). */
+.hiscores-table { width: 100%; border-collapse: collapse; font-size: 11px; margin: 6px 0; }
+.hiscores-table th { text-align: left; color: var(--dim); font-weight: normal; padding: 2px 6px; border-bottom: 1px solid var(--edge-light); }
+.hiscores-table th.num, .hiscores-table td.num { text-align: right; }
+.hiscores-table td { padding: 2px 6px; border-bottom: 1px solid rgba(0, 0, 0, 0.35); }
+.hiscores-table tr.overall { font-weight: bold; color: var(--gold); }
+
+/* Seers market panel (market.js) — reuses .hiscores-table's grid wholesale, adding only the
+   snapshot stamp and the axe highlight. The stamp is deliberately prominent rather than
+   incidental: these numbers are a periodic snapshot of a player-run market's bank, not live
+   stock, and an operator reading a stale figure as current is how an account gets sent across
+   the map for an axe that is not there. */
+.market-stamp { color: var(--dim); font-size: 11px; margin-bottom: 4px; }
+.market-stamp:empty { display: none; }
+.market-table tr.market-axe { color: var(--gold); }
+
+/* Tally panel (tally.js) — accumulated run statistics, individual-accounts view. Reuses
+   util.js's generic table() helper (the same one accounts.js's own table already uses),
+   right-aligning every column but the account name so the numbers read as a leaderboard. */
+.tally-table { width: 100%; border-collapse: collapse; font-size: 11px; margin: 4px 0; }
+.tally-table th { text-align: right; color: var(--dim); font-weight: normal; padding: 2px 6px; border-bottom: 1px solid var(--edge-light); white-space: nowrap; }
+.tally-table th:first-child, .tally-table td:first-child { text-align: left; }
+.tally-table td { text-align: right; padding: 2px 6px; border-bottom: 1px solid rgba(0, 0, 0, 0.35); white-space: nowrap; }
+.tally-table tr:hover td { background: rgba(255, 255, 255, 0.04); }
+
+.capture-preview { max-width:100%; height:auto; image-rendering:pixelated; }
+.gpu-map-canvas { display:block; width:100%; height:calc(100% - 65px); min-height:160px; touch-action:none; }
+
+/* Native bank order: eight columns, authentic model sprites and stack labels.
+   Keep DOM slots for keyboard focus, accessible names and browser hit testing. */
+.bank-grid { display:grid; grid-template-columns:repeat(8,minmax(36px,1fr)); gap:5px; background:linear-gradient(#554e40dd,#423e34dd),url('chrome/invback.png'); }
+.bank-grid .bank-slot { position:relative; display:flex; align-items:center; justify-content:center; min-width:0; height:42px; padding:4px; background:transparent; border:1px solid transparent; }
+.bank-grid .bank-slot:focus-visible, .bank-grid .bank-slot:hover { outline:1px solid #d4b84b; background:#b99b4930; }
+.bank-grid .bank-slot .item-name { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0,0,0,0); }
+.bank-grid .bank-slot .item-count { position:absolute; left:1px; top:0; color:#ffff00; font-size:11px; text-shadow:1px 1px #000; pointer-events:none; }
+.bank-grid .item-icon img { width:32px; height:32px; image-rendering:pixelated; }
+.bank-grid > .none { grid-column:1/-1; }
+.bankall-filter { display:block; width:calc(100% - 16px); margin:8px; box-sizing:border-box; }
+.bankall-tooltip { position:fixed; z-index:10000; box-sizing:border-box; max-width:calc(100vw - 16px); width:max-content; max-height:min(55vh,420px); overflow:auto; white-space:pre-wrap; overflow-wrap:anywhere; padding:10px 12px; color:#ffffb0; background:#30291ff5; border:2px ridge #8e7b56; box-shadow:2px 3px 8px #0009; font:13px/1.45 system-ui,sans-serif; }
+.bankall-tooltip[hidden] { display:none; }
+
+/* December 2004 stats.if: 3 columns, yellow current/base fractions, Runecraft last. */
+.ingame-skills { display:grid; grid-template-columns:repeat(3,96px); width:288px; max-width:100%; margin:8px auto; gap:0; background:url('chrome/invback.png') center/cover; }
+.ingame-skill { position:relative; height:47px; margin:0; padding:0; border:1px solid #716958; border-bottom-color:#302c25; border-right-color:#302c25; border-radius:0; background:linear-gradient(115deg,#665f50,#4b463d); color:#ffff00; text-shadow:1px 1px #000; font:bold 17px/1 monospace; }
+.ingame-skill img { position:absolute; left:5px; top:7px; width:32px; height:32px; image-rendering:pixelated; }
+.ingame-current { position:absolute; left:44px; top:6px; }
+.ingame-base { position:absolute; right:5px; bottom:6px; }
+.ingame-slash { position:absolute; left:62px; top:15px; font-size:23px; }
+.ingame-skill[aria-pressed="true"], .ingame-skill:focus-visible { outline:1px solid #ffff00; outline-offset:-2px; }
+.ingame-skill:hover { filter:brightness(1.12); }
+.ingame-icon-fallback { position:absolute; left:5px; top:14px; font-size:14px; }
+.ingame-skill-details { white-space:pre-line; margin:8px; padding:8px; color:#ffff00; background:#28251c; border:1px solid #756b50; font-size:13px; line-height:1.5; }
+.skillspanel-total { display:block; margin:5px 8px; text-align:center; }
+.ingame-current canvas.bmfont, .ingame-base canvas.bmfont { filter:brightness(0) invert(1) sepia(1) saturate(10000%) drop-shadow(1px 1px #000); }
+.ingame-current, .ingame-base { display:flex; gap:2px; }
+.ingame-digit { display:inline-block; height:12px; background:#ffff00; mask-image:url('chrome/fonts/p11_full.png'); -webkit-mask-image:url('chrome/fonts/p11_full.png'); mask-size:480px 480px; -webkit-mask-size:480px 480px; mask-repeat:no-repeat; -webkit-mask-repeat:no-repeat; filter:drop-shadow(1px 1px #000); }
+
+/* Authentic cache fonts: offline outlines of decoded PixFont glyphs and exact
+   advances. Native DOM rendering replaces a canvas per heading. Latin-1 cache
+   coverage only; unsupported characters use Arial. No new WebGL contexts for
+   text/forms/tables. Fractional scaling may soften the original pixel outlines. */
+@font-face { font-family: 'Lost City'; src: url('chrome/fonts/lostcity-p12.ttf') format('truetype'); font-style: normal; font-weight: 400; font-display: swap; }
+@font-face { font-family: 'Lost City'; src: url('chrome/fonts/lostcity-b12.ttf') format('truetype'); font-style: normal; font-weight: 700; font-display: swap; }
+@font-face { font-family: 'Lost City Small'; src: url('chrome/fonts/lostcity-p11.ttf') format('truetype'); font-style: normal; font-weight: 400; font-display: swap; }
+body { font-family: 'Lost City', Arial, sans-serif; font-size: 16px; line-height: 1.15; }
+h1 { font: bold 22px/1.15 'Lost City', Arial, sans-serif; color: #ffff00; }
+.window { background: linear-gradient(rgba(28,24,18,.35),rgba(28,24,18,.35)),url('chrome/invback.png'); border-color: #5e5343 #211b15 #211b15 #5e5343; }
+.window h2 { background: #3e3529; font-size: 20px; line-height: 1.15; color: #ffff00; text-shadow: 1px 1px #000; border-bottom: 2px solid #211b15; }
+.window h2 .title { font-family: 'Lost City', Arial, sans-serif; font-weight: bold; }
+.window h2 .sub, #note, #fleetnote, .pill, h3, .legend, .foot { font: 16px/1.15 'Lost City Small', Arial, sans-serif; }
+.tools button { font-size: 16px; }
+button { background-color: #493e2d; background-image: none; border-color: #75664b #211b15 #211b15 #75664b; }
+button.primary { background-color: #68180d; }
+button:hover:not(:disabled) { color: #ffff00; }
+.feed { font: 16px/1.15 'Lost City Small', Arial, sans-serif; }
+/* Real native chatback, kept light with dark ink as in the game's chatbox.
+   Fleet decisions remain in their separate dark Event log feed. */
+.chatfeed { background: #c8bba2 url('chrome/chatback.png') repeat; background-size: 479px 96px; color: #000; border: 2px solid #75664b; padding: 4px; min-height: 96px; }
+.chatfeed .line { gap: 5px; padding: 1px 0; }
+.chatfeed .line.chatline .msg { color: #000; }
+.chatfeed .who { color: #000080; }
+.chatfeed .t, .chatfeed:empty::after { color: #554834; }
+.chatfeed .line .msg { white-space: normal; overflow-wrap: anywhere; }
+.skill-name, .skill-stats, .item, .slot, .alert, .hiscores-recent button { font-family: Arial, sans-serif; }
+/* Dense tooltips retain their prior readable sizing and viewport constraints. */
+.tip, .maptip, .bankall-tip { font-family: Arial, sans-serif; }
+.gpu-model-canvas { width: min(100%, 765px); height: 503px; display: block; }
+
+/* Composited panel scrolling (measured, docs/control_panel_gpu.md): the panel bodies are
+   transparent over the textured window, so at devicePixelRatio 1 Chrome/Edge did not give
+   their scrollers their own layer and repainted + re-rastered the whole panel on every scroll
+   step. A layer per body cut scrolling cost ~2.6x (953 -> 361 ms of main-thread work per
+   second with the typical panels open) and dropped raster from 281 to 21 ms/s. Side effect:
+   text in a layer is greyscale- rather than subpixel-antialiased. Nothing positioned fixed
+   lives inside a body (the combined-bank tooltip is appended to <body>). */
+.window .body { will-change: transform; }
+
+/* GPU table (gpu-table.js): a native scroller over an empty spacer, with one canvas drawing
+   only the rows on screen. */
+.gputable { position: relative; width: 100%; height: 100%; min-height: 60px; }
+.gputable-scroll { position: absolute; inset: 0; overflow: auto; }
+.gputable-spacer { width: 1px; }
+.gputable-canvas { position: absolute; left: 0; top: 0; z-index: 1; pointer-events: none; display: block; }
+
+/* Map panels (map.js, heatmap.js; see map-overlay.js): the map fills the panel body and every
+   control floats over it, so a map panel never scrolls. The overlay cluster passes pointer
+   events through its gaps so the map still drags right up to the buttons. Leaflet's panes sit
+   at z-index 400 and its corner controls at 1000; the chrome sits between tiles and controls. */
+.window .body.mapbody { overflow: hidden; }
+.mapbody > .mapwrap { position: absolute; inset: 0; width: auto; height: auto; }
+.mapbar { position: absolute; top: 6px; right: 6px; z-index: 900; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; max-width: calc(100% - 60px); pointer-events: none; }
+.mapbar-items { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 4px; }
+.mapbar-items > * { pointer-events: auto; }
+.mapbar button, .mapbar select { font-size: 11px; padding: 2px 7px; }
+.mapbar button, .mapbar select, .mapbar .heatintensity { background-color: rgba(11, 10, 8, 0.78); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.6); }
+.mapbar select { max-width: 13em; color: var(--text); border: 1px solid var(--edge-light); }
+.mapbar-toggle { display: none; pointer-events: auto; }
+.mapbar.collapsed .mapbar-toggle { display: inline-block; }
+.mapbar.collapsed .mapbar-items { display: none; flex-direction: column; align-items: stretch; padding: 4px; background: rgba(11, 10, 8, 0.9); border: 1px solid var(--edge-light); pointer-events: auto; overflow: auto; }
+.mapbar.collapsed.open { bottom: 6px; }
+.mapbar.collapsed.open .mapbar-items { display: flex; min-height: 0; max-height: none; }
+.mapwrap.narrow .heatlegendtext { display: none; }
+.mapwrap.narrow .heatlegend { padding: 3px; }
+.mapwrap.narrow .heatramp { width: 70px; margin: 0; }
+.mapwrap.narrow .mapfoot { max-width: calc(100% - 100px); }
+.mapbar.collapsed .mapbar-items select { max-width: none; }
+.mapfoot { position: absolute; right: 6px; bottom: 4px; z-index: 900; max-width: calc(100% - 200px); padding: 1px 6px; background: rgba(11, 10, 8, 0.72); pointer-events: none; }
+.mapwrap .arealevel { z-index: 900; }
+
+/* Travel heat map panel (panels/heatmap.js) specifics. */
+.heatintensity { display: inline-flex; align-items: center; gap: 4px; padding: 1px 6px; font-size: 11px; border: 1px solid var(--edge-light); }
+.heatintensity input[type=range] { width: 80px; }
+.heatlbl, .heatnum { color: var(--dim); }
+.heatconfirm { position: absolute; left: 50%; top: 40px; z-index: 950; transform: translateX(-50%); width: min(460px, calc(100% - 16px)); display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 6px 8px; font-size: 11px; border: 1px solid var(--bad); background: rgba(23, 20, 16, 0.95); color: var(--text); }
+.heatconfirm[hidden] { display: none; }
+.heatconfirm span { flex: 1 1 16em; }
+button.heatdanger { background: var(--red); border-color: var(--red-light); color: var(--white); }
+.heatnote { position: absolute; left: 50%; bottom: 28px; z-index: 950; transform: translateX(-50%); max-width: calc(100% - 16px); padding: 2px 8px; font-size: 11px; color: var(--text); background: rgba(11, 10, 8, 0.85); pointer-events: none; }
+.heatnote:empty { display: none; }
+.heatnote.bad { color: var(--warn); }
+.heatwrap .heatlayer { position: absolute; left: 0; top: 0; pointer-events: none; }
+.heatwrap .heatlayer canvas { position: absolute; left: 0; top: 0; }
+.heatwrap .heatplain { position: absolute; inset: 0; background: var(--plot); }
+.heatwrap .heatplain canvas { position: absolute; left: 0; top: 0; }
+.heatplainnote { position: absolute; left: 6px; top: 6px; font-size: 11px; color: var(--dim); }
+.heatlegend { position: absolute; left: 6px; bottom: 4px; z-index: 900; padding: 4px 6px; font-size: 11px; color: var(--dim); background: rgba(0, 0, 0, 0.6); border: 1px solid var(--edge-light); pointer-events: none; max-width: 190px; }
+.heatramp { width: 140px; height: 8px; margin-bottom: 3px; border: 1px solid var(--edge-dark); }
+.heatstatus { position: absolute; left: 60px; top: 6px; z-index: 900; padding: 3px 6px; font-size: 11px; color: var(--warn); background: rgba(0, 0, 0, 0.6); }
+.heatstatus:empty, .heatstatus[hidden] { display: none; }
+.heatwrap .tip { z-index: 960; }
+
+/* ===== Loot panel (panels/loot.js, loot-gl.js, loot-models.js) ==============   A showcase panel in the same 2004 dress as the rest: stone cards with the .window's own
+   outset bevel, the bank's invback slot grid, the chatbox's parchment for the drop ticker,
+   the cache fonts for names and numbers. The body does not scroll itself: .loot-scroll does,
+   under one WebGL canvas (.loot-gl, pointer-events: none) that draws every on-screen card's
+   model into that card's .loot-stage rectangle. The stage's own background is the spotlight
+   the model stands in; its fallback icon shows until (or unless) a model is drawn there. */
+.window .body.lootbody { overflow: hidden; display: flex; flex-direction: column; }
+.loot { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.loot-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; padding: 0 0 6px; margin-bottom: 6px; border-bottom: 1px solid #211b15; box-shadow: 0 1px 0 rgba(117, 102, 75, 0.35); }
+.loot-seg { display: inline-flex; }
+.loot-seg button { padding: 1px 9px; }
+.loot-seg button + button { margin-left: -2px; }
+.loot-seg button.is-active, .loot-bar > button.is-active { color: #ffff00; border-style: inset; border-color: #211b15 #75664b #75664b #211b15; background-color: #2e271d; }
+.loot-sort { display: inline-flex; align-items: center; gap: 5px; color: var(--dim); }
+.loot-sort select { padding: 1px 4px; }
+.loot-search { flex: 1 1 14em; min-width: 9em; max-width: 26em; background: var(--parchment); color: var(--parchment-ink); border: 2px solid var(--edge); padding: 2px 6px; }
+.loot-view { position: relative; flex: 1; min-height: 0; }
+.loot-scroll { position: absolute; inset: 0; overflow: auto; overscroll-behavior: contain; }
+.loot-inner { padding: 0 2px 4px 0; }
+.loot-gl { position: absolute; inset: 0; z-index: 2; display: block; width: 100%; height: 100%; pointer-events: none; }
+.loot-note { margin-bottom: 6px; font: 16px/1.15 'Lost City Small', Arial, sans-serif; }
+
+/* Fleet totals: one bevelled stone tile per figure, the number in the bold cache font. */
+.loot-totals { margin-bottom: 8px; }
+.loot-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 5px; }
+.loot-tile { padding: 4px 9px 3px; background: linear-gradient(#3e3529, #28221a); border: 2px solid; border-color: #5e5343 #211b15 #211b15 #5e5343; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.35); }
+/* The figure is shown IN FULL, never clipped: loot is valued at real market prices now, so the
+   lifetime total is already ten digits and still growing, and an ellipsis on the headline number
+   of this panel is not an option (owner, 2026-09-20). The tile keeps its width and the type
+   steps down instead — see setCounter, which sets is-long/is-huge from the digit count. */
+.loot-tile b { display: block; font: bold 22px/1.1 'Lost City', Arial, sans-serif; color: #ffff00; text-shadow: 1px 1px #000; white-space: nowrap; }
+.loot-tile b.is-long { font-size: 18px; }
+.loot-tile b.is-huge { font-size: 15px; letter-spacing: -0.2px; }
+.loot-tile b.is-vast { font-size: 13px; letter-spacing: -0.3px; }
+.loot-tile span { display: block; font: 16px/1.1 'Lost City Small', Arial, sans-serif; color: var(--dim); white-space: nowrap; }
+.loot-tile-value b { color: var(--gold); }
+/* The two figures the net value is made of: muted, so they read as its working rather than as
+   three headline numbers competing (owner's netting ask, 2026-09-21). */
+.loot-tile-gross b, .loot-tile-cost b { color: var(--dim); }
+.loot-tile-kill b { color: #ff9040; }
+.loot-tile-pickpocket b { color: #c0ff00; }
+.loot-tile-casket b, .loot-tile-oyster b { color: #ffffff; }
+.loot-tile-fish b { color: #7fd8ff; }
+.loot-tile-chop b { color: #9bd47a; }
+.loot-tile-mine b { color: #c9b08a; }
+/* Fletching: a paler shade of chop's green wood, because that is literally what it is made of. */
+.loot-tile-fletch b { color: #cdeaa4; }
+.loot-tile-randomevent b { color: #ff80ff; }
+.loot-top { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; margin-top: 6px; }
+.loot-top-label { margin-right: 2px; color: var(--dim); font: 16px/1.1 'Lost City Small', Arial, sans-serif; }
+.loot-topchip { display: flex; align-items: center; gap: 6px; padding: 2px 8px 2px 3px; background: rgba(0, 0, 0, 0.32); border: 1px solid #5e5343; }
+.loot-topchip:hover, .loot-topchip:focus-visible { border-color: #d4b84b; outline: none; }
+.loot-topchip.is-rare { border-color: #a98a3f; box-shadow: 0 0 6px rgba(231, 193, 90, 0.3); }
+.loot-topchip .item-icon img, .loot-topchip .item-icon svg { width: 32px; height: 32px; }
+.loot-topchip-text { display: flex; flex-direction: column; line-height: 1.05; }
+.loot-topchip-name { color: #ff9040; font: 16px/1.1 'Lost City Small', Arial, sans-serif; text-shadow: 1px 1px #000; white-space: nowrap; }
+.loot-topchip b { font-weight: normal; color: #ffff00; text-shadow: 1px 1px #000; }
+.loot-spark { flex: none; }
+.loot-spark-line { fill: none; stroke: #e7c15a; stroke-width: 1.3; stroke-linejoin: round; }
+.loot-spark-area { fill: rgba(231, 193, 90, 0.16); }
+
+/* Notable drops, written into the game's own chatbox parchment. */
+.loot-ticker { display: flex; flex-wrap: wrap; align-items: center; gap: 3px 12px; margin-bottom: 8px; padding: 4px 8px; color: #000; background: #c8bba2 url('chrome/chatback.png') repeat; background-size: 479px 96px; border: 2px solid #75664b; font: 16px/1.2 'Lost City Small', Arial, sans-serif; }
+.loot-ticker .none { color: #554834; }
+.loot-ticker-label { color: #800000; }
+.loot-tick { display: inline-flex; align-items: center; gap: 5px; }
+.loot-tick.is-new { animation: loot-tick-in 700ms ease-out; }
+.loot-tick-t { color: #554834; }
+.loot-tick .who { color: #000080; }
+.loot-tick-item { display: inline-flex; align-items: center; gap: 2px; color: #800000; }
+.loot-tick-item .item-icon img, .loot-tick-item .item-icon svg { width: 22px; height: 22px; }
+@keyframes loot-tick-in { from { opacity: 0; transform: translateY(-4px); } }
+.loot-accounts { margin-bottom: 8px; }
+.loot-accounts-table { font: 16px/1.2 'Lost City Small', Arial, sans-serif; }
+.loot-accounts-table td:first-child { color: var(--gold); }
+
+/* Source cards. */
+.loot-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); align-items: start; gap: 8px; }
+.loot-cards > .none { grid-column: 1 / -1; }
+.loot-card { position: relative; display: grid; grid-template-columns: 104px minmax(0, 1fr); grid-template-areas: "stage info" "drops drops"; gap: 6px 10px; padding: 7px; background: linear-gradient(rgba(30, 26, 19, 0.62), rgba(16, 13, 10, 0.82)), url('chrome/stoneback.gif'); background-size: auto, 96px 96px; border: 2px solid; border-color: #5e5343 #211b15 #211b15 #5e5343; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.5), 0 2px 0 rgba(0, 0, 0, 0.4); }
+.loot-card:hover { border-color: #75664b #2a221a #2a221a #75664b; }
+.loot-stage { grid-area: stage; position: relative; width: 104px; height: 112px; overflow: hidden; cursor: grab; touch-action: none; background: radial-gradient(ellipse 72% 58% at 50% 64%, rgba(231, 193, 90, 0.22), rgba(231, 193, 90, 0.06) 55%, transparent 78%), linear-gradient(#1b1712, #0c0a08); border: 1px solid #0b0a08; box-shadow: inset 0 0 14px rgba(0, 0, 0, 0.85), 0 0 0 1px #3e3529; }
+.loot-stage.is-dragging { cursor: grabbing; }
+.loot-stage-fallback { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+.loot-stage-fallback .item-icon img, .loot-stage-fallback .item-icon svg { width: 52px; height: 52px; image-rendering: pixelated; }
+.loot-stage.has-model .loot-stage-fallback, .loot-stage.has-still .loot-stage-fallback { display: none; }
+/* The Maze has no cache model at all, so it gets the owner's map of it, framed and hung on the
+   same lit stage and swaying on the same ~12.5s period the models turn on (see STILLS in
+   panels/loot.js). CSS rather than JS: it costs no frame budget and keeps working with WebGL
+   off, where the models fall back to still sprites anyway. */
+.loot-map-wrap { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; perspective: 520px; pointer-events: none; }
+.loot-map { width: 74%; max-height: 74%; object-fit: contain; image-rendering: pixelated; background: #0c0a08; border: 2px solid; border-color: #6a5c3f #2a2118 #2a2118 #6a5c3f; box-shadow: 0 0 0 1px #0b0a08, 0 7px 14px rgba(0, 0, 0, 0.62), inset 0 0 16px rgba(0, 0, 0, 0.55); animation: loot-map-sway 12.5s ease-in-out infinite; }
+@keyframes loot-map-sway { 0%, 100% { transform: rotateY(-17deg); } 50% { transform: rotateY(17deg); } }
+.loot-map.is-held { animation: none; }
+@media (prefers-reduced-motion: reduce) { .loot-map { animation: none; transform: rotateY(-12deg); } }
+.loot.gl-lost .loot-stage:not(.has-model) .loot-stage-fallback { display: flex; }
+.loot-sprite { position: absolute; inset: 0; width: 100%; height: 100%; }
+.loot-info { grid-area: info; display: flex; flex-direction: column; gap: 4px; min-width: 0; padding-top: 2px; }
+.loot-title { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; font: bold 20px/1.05 'Lost City', Arial, sans-serif; text-shadow: 1px 1px #000; }
+.loot-level { white-space: nowrap; }
+.loot-name.is-npc { color: #ffff00; }
+.loot-name.is-obj { color: #ff9040; }
+.loot-counts { display: flex; align-items: baseline; gap: 7px; }
+.loot-verb { color: var(--dim); font: 16px/1 'Lost City Small', Arial, sans-serif; }
+.loot-count { font: bold 26px/1 'Lost City', Arial, sans-serif; color: #ffffff; text-shadow: 1px 1px #000, 0 0 10px rgba(231, 193, 90, 0.25); }
+.loot-meta { color: var(--dim); font: 16px/1.15 'Lost City Small', Arial, sans-serif; }
+/* What the source is worth, at real market prices. gp/h leads because it is the figure that
+   makes two sources comparable; the running total sits beside it, dimmed. */
+.loot-worth { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; font: 16px/1.15 'Lost City Small', Arial, sans-serif; }
+.loot-worth b { font: bold 17px/1.15 'Lost City Small', Arial, sans-serif; color: var(--gold); text-shadow: 1px 1px #000; }
+.loot-worth span { color: var(--dim); }
+/* Lifetime leads with a TOTAL, not a rate, and its hourly figure is an average over a changing
+   fleet rather than something to act on — so it is stated plainly and kept visually quieter than
+   the since-restart rate it sits next to. */
+.loot-worth.is-lifetime b { color: #dcc38a; }
+.loot-worth.is-lifetime span { opacity: 0.85; }
+.loot-drops { grid-area: drops; display: grid; grid-template-columns: repeat(auto-fill, 38px); gap: 3px; min-height: 42px; padding: 4px; background: linear-gradient(#554e40dd, #423e34dd), url('chrome/invback.png'); border: 1px solid #211b15; box-shadow: inset 0 0 0 1px rgba(117, 102, 75, 0.35); }
+.loot-drops > .none { grid-column: 1 / -1; align-self: center; color: #d8cfba; }
+/* A merged card's per-target breakdown (the Thieving card's Man / Guard / Baker's stall rows, a
+   tree per row on Woodcutting, a bone per row on Prayer). Each row is a button that narrows the
+   drop grid to that target. Two lines per row so five figures fit a 300px card: its top drops'
+   icons on the left, then name and worth, then count and accounts. */
+.loot-card.has-parts { grid-template-areas: "stage info" "parts parts" "drops drops"; }
+.loot-parts { grid-area: parts; display: flex; flex-direction: column; gap: 2px; }
+.loot-part { display: grid; grid-template-columns: 62px minmax(0, 1fr) auto; grid-template-areas: "icons name worth" "icons count accts"; column-gap: 6px; align-items: center; padding: 2px 5px; text-align: left; cursor: pointer; color: var(--text); background: rgba(0, 0, 0, 0.3); border: 1px solid #2a221a; font: 16px/1.05 'Lost City Small', Arial, sans-serif; }
+.loot-part:hover, .loot-part:focus-visible { border-color: #75664b; outline: none; }
+.loot-part.is-picked { border-color: #d4b84b; background: #b99b4930; }
+.loot-part-items { grid-area: icons; display: flex; gap: 1px; align-items: center; }
+.loot-part-items .item-icon img, .loot-part-items .item-icon svg { width: 20px; height: 20px; image-rendering: pixelated; }
+.loot-part-name { grid-area: name; color: #ffff00; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-shadow: 1px 1px #000; }
+.loot-part-worth { grid-area: worth; color: var(--gold); text-align: right; white-space: nowrap; }
+.loot-part-count { grid-area: count; color: #ffffff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.loot-part-accts { grid-area: accts; color: var(--dim); text-align: right; white-space: nowrap; }
+/* Compact rows: a folded group (High Alchemy) opens to its best items, indented, with a "+K more" row. */
+.loot-part.is-group { border-color: #4a3d2a; }
+.loot-part.is-child { margin-left: 14px; background: rgba(0, 0, 0, 0.18); }
+.loot-part.is-more, .loot-part-more { margin-left: 14px; color: var(--dim); background: transparent; border-style: dashed; }
+.loot-part-toggle { cursor: pointer; color: var(--gold); }
+.loot-skill-icon { width: 44px; height: 44px; image-rendering: pixelated; }
+.loot-slot { position: relative; display: flex; align-items: flex-end; justify-content: center; width: 38px; height: 34px; border: 1px solid transparent; }
+.loot-slot .item-icon img, .loot-slot .item-icon svg { width: 32px; height: 32px; image-rendering: pixelated; }
+.loot-slot:hover, .loot-slot:focus-visible { outline: 1px solid #d4b84b; background: #b99b4930; }
+.loot-stack { position: absolute; left: 1px; top: -1px; font: 16px/1 'Lost City Small', Arial, sans-serif; text-shadow: 1px 1px #000; pointer-events: none; }
+.stack-y { color: #ffff00; }
+.stack-w { color: #ffffff; }
+.stack-g { color: #00ff80; }
+.loot-slot.is-rare::after { content: ''; position: absolute; right: 2px; top: 2px; width: 5px; height: 5px; background: #e7c15a; transform: rotate(45deg); box-shadow: 0 0 4px #e7c15a; pointer-events: none; }
+.loot-slot.is-match { outline: 1px solid #ffff00; background: rgba(255, 255, 0, 0.16); }
+.loot-slot.is-dim { opacity: 0.35; }
+.loot-slot.is-new { animation: loot-glow 2.4s ease-out; }
+@keyframes loot-glow {
+    0% { background: rgba(255, 225, 57, 0.45); box-shadow: 0 0 0 1px #fff3a0, 0 0 16px 5px rgba(255, 225, 57, 0.85); }
+    100% { background: transparent; box-shadow: 0 0 0 0 rgba(255, 225, 57, 0); }
+}
+.loot-shine { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, 0.8) 50%, transparent 65%) no-repeat; background-size: 300% 100%; animation: loot-shine 1.1s ease-in-out 2; }
+@keyframes loot-shine { from { background-position: 100% 0; } to { background-position: 0 0; } }
+/* Clearing wrongly recorded loot (panels/loot.js, POST /api/loot/clear). Both controls stay out of the
+   way until pointed at: a small "clear" in the card's corner, dim until the card is hovered, and a tiny
+   cross on a stack that shows while the stack is hovered or focused. The title leaves room for the first. */
+.loot-title { padding-right: 38px; }
+.loot-clear { position: absolute; top: 4px; right: 4px; padding: 0 5px; border-width: 1px; border-color: #5e5343 #211b15 #211b15 #5e5343; color: var(--dim); background: rgba(0, 0, 0, 0.35); font: 16px/1.15 'Lost City Small', Arial, sans-serif; opacity: 0.4; }
+.loot-card:hover .loot-clear, .loot-clear:focus-visible { opacity: 1; }
+.loot-clear:hover { color: #ff7a6a; }
+.loot-slot-x { position: absolute; right: -1px; bottom: -1px; width: 14px; height: 14px; padding: 0; border-width: 1px; border-color: #8a3a2c #2a0d08 #2a0d08 #8a3a2c; color: #fff; background: #5a1710; font: 14px/12px Arial, sans-serif; opacity: 0; }
+.loot-slot:hover .loot-slot-x, .loot-slot:focus .loot-slot-x, .loot-slot-x:focus-visible { opacity: 1; }
+.loot-slot-x:hover { color: #ffe139; }
+.loot.is-clearing .loot-clear, .loot.is-clearing .loot-slot-x { pointer-events: none; opacity: 0.2; }
+.loot-tooltip { font: 16px/1.3 'Lost City Small', Arial, sans-serif; }
+/* The Runecrafting section (panels/lootrunecraft.js), above the Runecraft and Essence supply cards under the Runecrafting
+   filter. It reuses the totals tiles, the tally tables and the notable-drops ticker, so it reads as the rest of the panel does. */
+.loot-rc { margin-bottom: 8px; }
+.loot-rc-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 12px; margin: 2px 0 5px; color: var(--dim); font: 16px/1.15 'Lost City Small', Arial, sans-serif; }
+.loot-rc-head b { color: #ff9040; font: bold 20px/1.05 'Lost City', Arial, sans-serif; text-shadow: 1px 1px #000; }
+.loot-rc-tiles { margin-bottom: 6px; }
+.loot-rc-tile b { color: #ffff00; }
+.loot-rc-value b { color: var(--gold); }
+.loot-rc-xp b { color: #7fd8ff; }
+.loot-rc-level b { color: #ffffff; }
+.loot-rc-mined b { color: #c9b08a; }
+.loot-rc-handed b { color: #c0ff00; }
+.loot-rc-stock b { color: #ffffff; }
+.loot-rc-note { display: block; max-width: 100%; color: var(--dim); font: normal 15px/1.1 'Lost City Small', Arial, sans-serif; white-space: normal; overflow-wrap: anywhere; }
+.loot-rc-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); gap: 8px; margin-bottom: 6px; }
+.loot-rc-block { min-width: 0; margin-bottom: 6px; padding: 3px 6px 4px; overflow-x: auto; background: rgba(0, 0, 0, 0.28); border: 1px solid #2a221a; }
+.loot-rc-grid > .loot-rc-block { margin-bottom: 0; }
+.loot-rc-title { margin: 0 0 2px; color: var(--dim); font: 16px/1.1 'Lost City Small', Arial, sans-serif; }
+.loot-rc-supply { margin-bottom: 6px; }
+.loot-rc-table { font: 16px/1.2 'Lost City Small', Arial, sans-serif; }
+.loot-rc-table td:first-child { color: var(--gold); }
+.loot-rc-named { display: inline-flex; align-items: center; gap: 4px; }
+.loot-rc-named .item-icon img, .loot-rc-named .item-icon svg { width: 20px; height: 20px; image-rendering: pixelated; }
+.loot-rc-recent { margin-bottom: 0; }
+.loot-dx-tile-deaths b { color: #ff6a5a; }
+.loot-dx-tile-value b { color: var(--gold); }
+.loot-dx-tile-recovered b { color: #c0ff00; }
+.loot-dx-tile-lost b { color: #ff4030; }
+.loot-dx-tile-open b { color: #ffb040; }
+.loot-dx-list { padding: 3px 0 4px; }
+.loot-dx-list > .loot-rc-title { padding: 0 6px; }
+.loot-dx-sum { display: grid; grid-template-columns: 78px minmax(90px, 1fr) minmax(130px, 1.4fr) minmax(90px, 1fr) 84px 84px 84px 130px; gap: 0 8px; align-items: baseline; padding: 1px 6px; font: 16px/1.25 'Lost City Small', Arial, sans-serif; cursor: pointer; list-style: none; }
+.loot-dx-sum::-webkit-details-marker { display: none; }
+.loot-dx-sum > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.loot-dx-header { color: var(--dim); cursor: default; border-bottom: 1px solid #2a221a; }
+.loot-dx-row:nth-child(odd) > .loot-dx-sum { background: rgba(255, 255, 255, 0.03); }
+.loot-dx-row[open] > .loot-dx-sum, .loot-dx-row > .loot-dx-sum:hover { background: rgba(255, 144, 64, 0.1); }
+.loot-dx-num { text-align: right; font-variant-numeric: tabular-nums; }
+.loot-dx-who { color: var(--gold); }
+.loot-dx-got { color: #c0ff00; }
+.loot-dx-gone { color: #ff6a5a; }
+.loot-dx-still { color: #ffb040; }
+.loot-dx-chip { display: inline-block; padding: 0 5px; border: 1px solid currentColor; border-radius: 3px; font-size: 14px; line-height: 1.2; }
+.loot-dx-recovered { color: #c0ff00; }
+.loot-dx-partial { color: #ffd040; }
+.loot-dx-open { color: #ffb040; }
+.loot-dx-lost { color: #ff4030; }
+.loot-dx-nothing { color: var(--dim); }
+.loot-dx-items { padding: 2px 8px 6px 20px; overflow-x: auto; background: rgba(0, 0, 0, 0.22); }
+.loot-dx-foot { margin-top: 4px; }
+@media (max-width: 760px) { .loot-dx-sum { grid-template-columns: 60px 1fr 1fr 70px 110px; } .loot-dx-sum > .loot-dx-cause, .loot-dx-sum > .loot-dx-got, .loot-dx-sum > .loot-dx-gone, .loot-dx-sum > .loot-dx-still { display: none; } }
+@media (prefers-reduced-motion: reduce) {
+    .loot-slot.is-new, .loot-tick.is-new { animation: none; }
+    .loot-slot.is-new { outline: 1px solid #ffe139; }
+    .loot-shine { display: none; }
+}
+/* ===== end Loot panel ===== */
+/* Where the time goes (panels/timesplit.js) and the mule dashboard (panels/mule.js), sharing
+   phasebar.js. The eight --ph-N slots are the dataviz reference categorical palette stepped for a
+   dark surface, validated against --stone in this order (adjacent CVD dE >= 8.4, normal-vision
+   dE >= 19.3, every slot >= 3:1): stacks are drawn in slot order so neighbours stay validated
+   pairs. The four greys are the "no work" states; they are labelled, never colour alone. */
+:root {
+    --ph-1: #3987e5; --ph-2: #d95926; --ph-3: #199e70; --ph-4: #c98500;
+    --ph-5: #d55181; --ph-6: #008300; --ph-7: #9085e9; --ph-8: #e66767;
+    --ph-idle: #8c8371; --ph-unknown: #6a6252; --ph-noscript: #4f483b; --ph-offline: #36312a;
+}
+.tsplit, .mule-wrap { position: relative; }
+.tsplit { display: flex; flex-direction: column; min-height: 100%; }
+.tsplit-rank { flex: 1; min-height: 150px; position: relative; }
+/* A flex item has no definite height for the table's own height: 100% to resolve against. */
+.tsplit-rank > .gputable { position: absolute; inset: 0; height: auto; }
+.phasebar { display: flex; gap: 2px; height: 18px; margin: 2px 0 4px; background: var(--plot); border: 1px solid var(--edge-dark); padding: 1px; }
+.phasebar.thin { height: 12px; }
+.phasebar.empty { color: var(--dim); font-size: 11px; line-height: 14px; padding-left: 4px; }
+.phaseseg { min-width: 2px; flex-basis: 0; overflow: hidden; border-radius: 2px; }
+.phaseseg span { display: block; padding: 0 3px; font-size: 10px; line-height: 16px; color: #fff; text-shadow: 0 0 2px #000, 0 0 2px #000; white-space: nowrap; }
+.phasebar.thin .phaseseg span { display: none; }
+.phaselegend { display: flex; flex-wrap: wrap; gap: 2px 10px; margin: 2px 0 4px; color: var(--dim); font-size: 11px; }
+.phasekey { white-space: nowrap; }
+.phasekey i { display: inline-block; width: 9px; height: 9px; margin-right: 4px; border-radius: 2px; vertical-align: -1px; }
+.tsplit-scripts { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 0 8px; align-items: center; }
+.tsplit-name { color: var(--dim); font-size: 11px; max-width: 22ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gantt { margin: 2px 0 2px; }
+.gantt-events { position: relative; height: 13px; margin-bottom: 1px; }
+.gantt-event { position: absolute; top: 0; bottom: 0; border: 1px solid var(--ph-5); border-bottom-width: 3px; background: rgba(0, 0, 0, 0.35); overflow: hidden; }
+.gantt-event span { display: block; padding: 0 2px; font-size: 9px; line-height: 9px; color: var(--text); white-space: nowrap; }
+.tsplit-events { color: var(--dim); font-size: 11px; margin: 2px 0 4px; }
+.tsplit-events b { color: var(--text); font-weight: normal; }
+.gantt-strip { position: relative; height: 20px; background: var(--plot); border: 1px solid var(--edge-dark); }
+.gantt-seg { position: absolute; top: 1px; bottom: 1px; border-radius: 2px; }
+.gantt-axis { position: relative; height: 14px; color: var(--dim); font-size: 10px; }
+.gantt-axis span { position: absolute; top: 1px; transform: translateX(-50%); white-space: nowrap; }
+.gantt-axis span:first-child { transform: none; }
+.gantt-axis span:last-child { transform: translateX(-100%); }
+.ph-tip { position: absolute; z-index: 4; pointer-events: none; max-width: 32em; padding: 2px 6px; background: var(--stone-2); border: 1px solid var(--edge-light); color: var(--text); font-size: 11px; white-space: nowrap; }
+.mule + .mule { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--edge); }
+.mule-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin-bottom: 6px; }
+.mule-head b { color: var(--gold); font-size: 13px; }
+.mule-incoming { display: flex; flex-wrap: wrap; gap: 3px; }
+.mule-chip { padding: 0 6px; border: 1px solid var(--edge-light); background: rgba(0, 0, 0, 0.3); font-size: 11px; white-space: nowrap; }
+.mule-stock { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+
+/* Mule ledger. The failure-reason chips deliberately reuse the Loot panel's top-drop chip
+   shape so the two panels read as one family; they carry a count and a reason instead of an
+   item icon. The count leads, because "20 of these" is the point. */
+.ledger-reasons { margin-top: 6px; }
+.ledger-reasons-label { color: var(--dim); font: 16px/1.1 'Lost City Small', Arial, sans-serif; margin-bottom: 4px; }
+.ledger-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.ledger-chip { display: flex; align-items: baseline; gap: 6px; padding: 2px 8px; background: rgba(0, 0, 0, 0.32); border: 1px solid #5e5343; }
+.ledger-chip-count { color: #ff9040; font: 16px/1.1 'Lost City Small', Arial, sans-serif; text-shadow: 1px 1px #000; }
+.ledger-chip-name { color: var(--dim); font: 16px/1.1 'Lost City Small', Arial, sans-serif; white-space: nowrap; }
+/* A failed trade is tinted rather than coloured over, so the row stays readable. */
+.ledger-table tbody tr.is-bad { background: rgba(120, 30, 20, 0.28); }
+.ledger-table tbody tr.is-bad td:nth-child(4) { color: #ff8060; }
+
+/* Skills tab: a thin progress bar under each cell's numbers, showing how far through the
+   current level the skill is. The in-game tab has no such bar — it makes you hover — and the
+   users asked for more information on the face of the panel. Kept to 3px and the panel's own
+   gold so it reads as part of the cell rather than a chart bolted on. */
+.ingame-skill { position: relative; }
+.ingame-progress { position: absolute; left: 3px; right: 3px; bottom: 2px; height: 3px; background: rgba(0, 0, 0, 0.45); }
+.ingame-progress-fill { display: block; height: 100%; width: 0; background: #d4b84b; transition: width 0.4s linear; }
+/* A skill earning XP right now, spottable across 19 cells without reading any numbers. */
+.ingame-skill.is-gaining .ingame-progress-fill { background: #4bd46a; }
+@media (prefers-reduced-motion: reduce) { .ingame-progress-fill { transition: none; } }
+.ingame-skills.no-progress .ingame-progress { display: none; }
+
+/* Fleet incidents and Scarab progression. */
+.incident { border-bottom: 1px solid var(--border, #394354); padding: .5rem; }
+.incident summary { cursor: pointer; overflow-wrap: anywhere; }
+.incident.sev-crit { border-left: 3px solid #e96b75; }
+.incident.sev-warn { border-left: 3px solid #e6b75c; }
+.incident-member { display: flex; align-items: baseline; flex-wrap: wrap; gap: .6rem; padding: .4rem 0; overflow-wrap: anywhere; }
+.incident-member .muted { opacity: .7; font-size: .85em; }
+.scarab-summary { display: flex; flex-wrap: wrap; gap: .5rem; padding: .5rem; }
+.scarab-stage { border: 1px solid var(--border, #394354); border-radius: 4px; padding: .3rem .5rem; }
+.scarab-table { width: 100%; font-size: .9em; }
+.scarab-table td, .scarab-table th { padding: .4rem; text-align: left; white-space: normal; overflow-wrap: anywhere; }

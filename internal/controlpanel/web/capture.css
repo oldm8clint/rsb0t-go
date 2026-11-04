@@ -1,0 +1,5 @@
+body { background:#171612; color:#e1d6b5; font:14px system-ui,sans-serif; margin:24px; max-width:800px; }
+h1 { font-size:20px; color:#e4c77e; }
+canvas#preview { display:block; width:min(100%,768px); height:auto; image-rendering:pixelated; border:1px solid #6b6045; }
+a { color:#e4c77e; margin-right:20px; }
+button { background:#403b2c; color:#eee; border:1px solid #6b6045; padding:8px 12px; cursor:pointer; }

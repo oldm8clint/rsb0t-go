@@ -1,0 +1,10 @@
+{
+  "_comment": "Known-answer vector generated from the real vendored src/client/io/Isaac.ts (see ../../isaac_reference_vector.ts). Used by internal/isaac/isaac_test.go to verify the Go port bit-for-bit.",
+  "seed": [1, 2, 3, 4],
+  "values": [
+    -621246914, 1957022519, -1345000077, -2021884860, -1882702437,
+    1616913581, -8779862, 1337573575, -729985528, -363589572,
+    180676801, -60666282, -1171063756, 804531392, 1687941800,
+    -1114097088, -1287507259, 1643580469, 1601966685, 385631690
+  ]
+}

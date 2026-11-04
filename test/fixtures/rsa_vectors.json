@@ -1,0 +1,15 @@
+{
+  "_comment": "Known-answer RSA encryption vectors generated from the real vendored JsUtil.ts (bytesToBigInt/bigIntModPow/bigIntToBytes — see ../../rsa_reference_vector.ts). 'toy' is the textbook p=61,q=53,n=3233,e=17,d=2753 example (round-trip self-checked in the generator script before being trusted); 'local' uses the actual local test engine's derived key (data/config/private.pem), a genuinely large non-65537 exponent as the docs warn a stock engine produces.",
+  "toy": {
+    "mod": "3233",
+    "exp": "17",
+    "plain": [65],
+    "enc": [10, 230]
+  },
+  "local": {
+    "mod": "7162900525229798032761816791230527296329313291232324290237849263501208207972894053929065636522363163621000728841182238772712427862772219676577293600221789",
+    "exp": "58778699976184461502525193738213253649000149147835990136706041084440742975821",
+    "plain": [104, 101, 108, 108, 111, 32, 114, 115, 50, 98, 48, 116, 45, 103, 111],
+    "enc": [89, 89, 76, 135, 206, 162, 17, 238, 190, 243, 55, 233, 77, 50, 245, 147, 208, 219, 244, 212, 101, 179, 17, 106, 102, 83, 215, 79, 228, 42, 87, 111, 136, 240, 170, 246, 70, 45, 24, 77, 203, 77, 249, 57, 88, 38, 22, 138, 216, 8, 188, 204, 117, 117, 138, 195, 153, 120, 66, 218, 210, 129, 170, 192]
+  }
+}

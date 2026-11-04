@@ -1,0 +1,31 @@
+{
+  "_comment": "The roster rsb0t keeps in rsb0t-data/fleet.config.json. `rsb0t setup`, `rsb0t server` and `rsb0t account` write it for you; this file only shows the shape. It never holds a password: passwords are in credentialsFile (credentials.json beside the roster), written by the setup page or `rsb0t account add`. The roster is read leniently: an unknown or misspelt key is ignored, not an error, so read back what you change (`rsb0t server`, `rsb0t account list`).",
+
+  "server": "https://example-server.com",
+  "wsURL": "wss://w1.example-server.com/",
+  "httpBase": "https://w1.example-server.com/",
+  "credentialsFile": "credentials.json",
+  "loginDelaySeconds": 3,
+
+  "_comment_key": "Leave modulus and exponent out: the login key is read from <httpBase>client/client.js at every start, and read again after a response 6 in case the server changed it. Set them (decimal; `rsb0t server ADDRESS -modulus N -exponent N` does it) only when that file does not carry the key, for example for a local test engine from its data/config/private.pem. A pasted key is used as it is and never re-read.",
+
+  "_comment_paths": "The data files a walking script needs. packPath is a collision pack (collision.lcnav[.gz]), locsPath a cmd/locbake output, configPath the server's config archive (cmd/cachecfgtest -save). All optional: an account with no script, or a script that does not walk, needs none of them.",
+  "packPath": "",
+  "locsPath": "",
+  "configPath": "",
+
+  "_comment_worlds": "worldList names the worlds the server has; `rsb0t server <one world's address>` fills it with the ones that answer. A world is another wsURL, derived by changing the leading wN. of the host. Each listed world is checked with one read-only GET of its /crc0 at start, and one that does not answer is reported, not fatal. Accounts pick a world with \"world\": N (0 or absent: the world wsURL names). An account refused with response 7 (world full) is moved to a listed world with room.",
+  "worldList": [1, 2],
+
+  "_comment_worlds_explicit": "Only for a server whose world hosts are not wN.<site>: state each world's endpoints by hand, e.g. {\"2\": {\"wsURL\": \"wss://game2.example-server.com/\", \"httpBase\": \"https://game2.example-server.com/\"}}. `rsb0t server` drops these when the server is changed.",
+  "worlds": {},
+
+  "accounts": [
+    {
+      "username": "YourAccount",
+      "script": "",
+      "world": 0,
+      "settings": {}
+    }
+  ]
+}

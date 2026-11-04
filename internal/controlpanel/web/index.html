@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>rsb0t-go — Fleet</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="style.css">
+<script type="module" src="app.js"></script>
+</head>
+<body>
+<header>
+    <h1>rsb0t-go — Fleet</h1>
+    <span id="conn" class="pill">connecting</span>
+    <span id="note"></span>
+    <span id="enginetick" class="pill" hidden title="the local test engine's current game-tick speed (set by ::speed)"></span>
+    <span class="spacer"></span>
+    <span id="fleetcontrols" class="fleetcontrols">
+        <button id="fleet-start" type="button" class="fleet-start" disabled title="Start can never be a real dashboard button: if the fleet process is not already running, there is no server here to have served this page — or this button — at all. Launch it from OUTSIDE the dashboard instead: double-click run\start-fleet.bat.">start fleet</button>
+        <button id="fleet-restart" type="button" class="fleet-restart" disabled title="Gracefully log out every connected account, then relaunch on whatever build currently sits next to this binary (run\restart-fleet.bat: stop, a 10-minute cooldown, then start). Affects the WHOLE fleet.">restart fleet</button>
+        <button id="fleet-stop" type="button" class="primary" disabled title="Gracefully log out every connected account, then exit this process. Affects the WHOLE fleet — not one account. Start it again afterwards with run\start-fleet.bat.">stop fleet</button>
+        <button id="accounts-requeue" type="button" disabled title="Wake existing reconnect retries and retry failed accounts through the shared login gate. In-game accounts and the startup roster queue are preserved.">requeue retries</button>
+        <button id="accounts-logout" type="button" disabled title="Log out connected accounts and cancel their existing login or reconnect attempts. The startup roster queue keeps running; this does not stop the fleet process.">logout connected</button>
+        <button id="accounts-login" type="button" disabled title="Queue offline, stopped or failed existing accounts through the shared login gate. Does not duplicate active login attempts or change the startup roster queue.">login offline</button>
+        <button id="scripts-stop-all" type="button" disabled>stop all scripts</button>
+        <button id="scripts-start-all" type="button" disabled>start all scripts</button>
+    </span>
+    <span id="fleetnote" class="fleetnote"></span>
+    <button id="add" type="button" aria-expanded="false" aria-controls="addmenu">+ add panel</button>
+    <button id="edit" type="button">edit layout</button>
+    <button id="reset" type="button">reset</button>
+</header>
+<div id="addmenu" hidden></div>
+<main id="grid">
+    <div id="cells"></div>
+    <div id="ghost" hidden></div>
+</main>
+<p id="empty" hidden>No panels on the page. Press <b>+ add panel</b>.</p>
+<dialog id="customize"></dialog>
+</body>
+</html>

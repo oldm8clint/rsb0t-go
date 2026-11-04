@@ -1,0 +1,744 @@
+{
+ "source": "rsb0t 3075eb7c6d8319f39e1f0549e137cc8b4e3c6ca0 PathFinder.findPath, no WorldState, no policy",
+ "routes": [
+  {
+   "name": "catherby bank to fishing",
+   "from": {
+    "x": 2809,
+    "z": 3441,
+    "level": 0
+   },
+   "to": {
+    "x": 2837,
+    "z": 3432,
+    "level": 0
+   },
+   "ok": true,
+   "cost": 33,
+   "end": {
+    "x": 2837,
+    "z": 3432,
+    "level": 0
+   },
+   "hops": []
+  },
+  {
+   "name": "catherby fishing to bank",
+   "from": {
+    "x": 2845,
+    "z": 3431,
+    "level": 0
+   },
+   "to": {
+    "x": 2809,
+    "z": 3441,
+    "level": 0
+   },
+   "ok": true,
+   "cost": 40,
+   "end": {
+    "x": 2809,
+    "z": 3441,
+    "level": 0
+   },
+   "hops": []
+  },
+  {
+   "name": "seers field to wheel",
+   "from": {
+    "x": 2741,
+    "z": 3444,
+    "level": 0
+   },
+   "to": {
+    "x": 2711,
+    "z": 3471,
+    "level": 1
+   },
+   "ok": true,
+   "cost": 50,
+   "end": {
+    "x": 2712,
+    "z": 3471,
+    "level": 1
+   },
+   "hops": [
+    {
+     "kind": "door",
+     "action": "Open",
+     "locName": "Door",
+     "locId": 1530,
+     "from": {
+      "x": 2716,
+      "z": 3472,
+      "level": 0
+     },
+     "to": {
+      "x": 2715,
+      "z": 3472,
+      "level": 0
+     }
+    },
+    {
+     "kind": "stair",
+     "action": "Climb-up",
+     "locName": "Ladder",
+     "locId": 1747,
+     "from": {
+      "x": 2715,
+      "z": 3471,
+      "level": 0
+     },
+     "to": {
+      "x": 2715,
+      "z": 3471,
+      "level": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "seers wheel to bank",
+   "from": {
+    "x": 2711,
+    "z": 3471,
+    "level": 1
+   },
+   "to": {
+    "x": 2725,
+    "z": 3493,
+    "level": 0
+   },
+   "ok": true,
+   "cost": 44,
+   "end": {
+    "x": 2725,
+    "z": 3493,
+    "level": 0
+   },
+   "hops": [
+    {
+     "kind": "stair",
+     "action": "Climb-down",
+     "locName": "Ladder",
+     "locId": 1746,
+     "from": {
+      "x": 2715,
+      "z": 3471,
+      "level": 1
+     },
+     "to": {
+      "x": 2715,
+      "z": 3471,
+      "level": 0
+     }
+    },
+    {
+     "kind": "door",
+     "action": "Open",
+     "locName": "Door",
+     "locId": 1530,
+     "from": {
+      "x": 2715,
+      "z": 3472,
+      "level": 0
+     },
+     "to": {
+      "x": 2716,
+      "z": 3472,
+      "level": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "seers bank to field",
+   "from": {
+    "x": 2725,
+    "z": 3493,
+    "level": 0
+   },
+   "to": {
+    "x": 2741,
+    "z": 3444,
+    "level": 0
+   },
+   "ok": true,
+   "cost": 56,
+   "end": {
+    "x": 2741,
+    "z": 3444,
+    "level": 0
+   },
+   "hops": []
+  },
+  {
+   "name": "lumbridge to draynor",
+   "from": {
+    "x": 3222,
+    "z": 3218,
+    "level": 0
+   },
+   "to": {
+    "x": 3093,
+    "z": 3244,
+    "level": 0
+   },
+   "ok": true,
+   "cost": 166,
+   "end": {
+    "x": 3093,
+    "z": 3244,
+    "level": 0
+   },
+   "hops": []
+  },
+  {
+   "name": "port sarim to karamja",
+   "from": {
+    "x": 3029,
+    "z": 3217,
+    "level": 0
+   },
+   "to": {
+    "x": 2924,
+    "z": 3152,
+    "level": 0
+   },
+   "ok": true,
+   "cost": 78,
+   "end": {
+    "x": 2924,
+    "z": 3152,
+    "level": 0
+   },
+   "hops": [
+    {
+     "kind": "ship",
+     "action": "Pay-fare",
+     "locName": "Seaman Thresnor",
+     "from": {
+      "x": 3027,
+      "z": 3218,
+      "level": 0
+     },
+     "to": {
+      "x": 2956,
+      "z": 3143,
+      "level": 1
+     }
+    },
+    {
+     "kind": "gangplank",
+     "action": "Cross",
+     "locName": "Gangplank",
+     "locId": 2082,
+     "from": {
+      "x": 2956,
+      "z": 3143,
+      "level": 1
+     },
+     "to": {
+      "x": 2956,
+      "z": 3147,
+      "level": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "ardougne dock deck to catherby",
+   "from": {
+    "x": 2683,
+    "z": 3268,
+    "level": 1
+   },
+   "to": {
+    "x": 2809,
+    "z": 3441,
+    "level": 0
+   },
+   "ok": true,
+   "cost": 222,
+   "end": {
+    "x": 2809,
+    "z": 3441,
+    "level": 0
+   },
+   "hops": [
+    {
+     "kind": "gangplank",
+     "action": "Cross",
+     "locName": "Gangplank",
+     "locId": 2086,
+     "from": {
+      "x": 2683,
+      "z": 3268,
+      "level": 1
+     },
+     "to": {
+      "x": 2683,
+      "z": 3271,
+      "level": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "ardougne gap 2615,3292,1",
+   "from": {
+    "x": 2615,
+    "z": 3292,
+    "level": 1
+   },
+   "to": {
+    "x": 2809,
+    "z": 3441,
+    "level": 0
+   },
+   "ok": true,
+   "cost": 277,
+   "end": {
+    "x": 2809,
+    "z": 3441,
+    "level": 0
+   },
+   "hops": [
+    {
+     "kind": "door",
+     "action": "Open",
+     "locName": "Door",
+     "locId": 1533,
+     "from": {
+      "x": 2615,
+      "z": 3292,
+      "level": 1
+     },
+     "to": {
+      "x": 2615,
+      "z": 3293,
+      "level": 1
+     }
+    },
+    {
+     "kind": "door",
+     "action": "Open",
+     "locName": "Door",
+     "locId": 1533,
+     "from": {
+      "x": 2616,
+      "z": 3294,
+      "level": 1
+     },
+     "to": {
+      "x": 2617,
+      "z": 3294,
+      "level": 1
+     }
+    },
+    {
+     "kind": "door",
+     "action": "Open",
+     "locName": "Door",
+     "locId": 1533,
+     "from": {
+      "x": 2622,
+      "z": 3294,
+      "level": 1
+     },
+     "to": {
+      "x": 2622,
+      "z": 3293,
+      "level": 1
+     }
+    },
+    {
+     "kind": "stair",
+     "action": "Climb-down",
+     "locName": "Ladder",
+     "locId": 1746,
+     "from": {
+      "x": 2622,
+      "z": 3293,
+      "level": 1
+     },
+     "to": {
+      "x": 2622,
+      "z": 3293,
+      "level": 0
+     }
+    },
+    {
+     "kind": "door",
+     "action": "Open",
+     "locName": "Door",
+     "locId": 1533,
+     "from": {
+      "x": 2621,
+      "z": 3294,
+      "level": 0
+     },
+     "to": {
+      "x": 2621,
+      "z": 3295,
+      "level": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "ardougne gap 2537,3089,0",
+   "from": {
+    "x": 2537,
+    "z": 3089,
+    "level": 0
+   },
+   "to": {
+    "x": 2809,
+    "z": 3441,
+    "level": 0
+   },
+   "ok": true,
+   "cost": 431,
+   "end": {
+    "x": 2809,
+    "z": 3441,
+    "level": 0
+   },
+   "hops": [
+    {
+     "kind": "door",
+     "action": "Open",
+     "locName": "Large door",
+     "locId": 1512,
+     "from": {
+      "x": 2537,
+      "z": 3089,
+      "level": 0
+     },
+     "to": {
+      "x": 2537,
+      "z": 3090,
+      "level": 0
+     }
+    },
+    {
+     "kind": "door",
+     "action": "Open",
+     "locName": "Large door",
+     "locId": 1516,
+     "from": {
+      "x": 2533,
+      "z": 3092,
+      "level": 0
+     },
+     "to": {
+      "x": 2532,
+      "z": 3092,
+      "level": 0
+     }
+    },
+    {
+     "kind": "portal",
+     "action": "Talk-to",
+     "locName": "Elkoy",
+     "from": {
+      "x": 2504,
+      "z": 3192,
+      "level": 0
+     },
+     "to": {
+      "x": 2515,
+      "z": 3159,
+      "level": 0
+     }
+    },
+    {
+     "kind": "gate",
+     "action": "Squeeze-through",
+     "locName": "Loose Railing",
+     "locId": 2186,
+     "from": {
+      "x": 2515,
+      "z": 3160,
+      "level": 0
+     },
+     "to": {
+      "x": 2515,
+      "z": 3161,
+      "level": 0
+     }
+    },
+    {
+     "kind": "portal",
+     "action": "Talk-to",
+     "locName": "Spirit Tree",
+     "from": {
+      "x": 2542,
+      "z": 3169,
+      "level": 0
+     },
+     "to": {
+      "x": 2461,
+      "z": 3444,
+      "level": 0
+     }
+    },
+    {
+     "kind": "door",
+     "action": "Open",
+     "locName": "Tree Door",
+     "locId": 1967,
+     "from": {
+      "x": 2465,
+      "z": 3491,
+      "level": 0
+     },
+     "to": {
+      "x": 2465,
+      "z": 3493,
+      "level": 0
+     }
+    },
+    {
+     "kind": "stair",
+     "action": "Climb-up",
+     "locName": "Ladder",
+     "locId": 1747,
+     "from": {
+      "x": 2466,
+      "z": 3496,
+      "level": 0
+     },
+     "to": {
+      "x": 2466,
+      "z": 3496,
+      "level": 1
+     }
+    },
+    {
+     "kind": "stair",
+     "action": "Climb-up",
+     "locName": "Ladder",
+     "locId": 1748,
+     "from": {
+      "x": 2466,
+      "z": 3496,
+      "level": 1
+     },
+     "to": {
+      "x": 2466,
+      "z": 3496,
+      "level": 2
+     }
+    },
+    {
+     "kind": "stair",
+     "action": "Climb-up",
+     "locName": "Ladder",
+     "locId": 2884,
+     "from": {
+      "x": 2466,
+      "z": 3496,
+      "level": 2
+     },
+     "to": {
+      "x": 2466,
+      "z": 3496,
+      "level": 3
+     }
+    },
+    {
+     "kind": "ship",
+     "action": "Talk-to",
+     "locName": "Gnome pilot",
+     "from": {
+      "x": 2465,
+      "z": 3501,
+      "level": 3
+     },
+     "to": {
+      "x": 2850,
+      "z": 3497,
+      "level": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "ardougne gap 2595,3440,0",
+   "from": {
+    "x": 2595,
+    "z": 3440,
+    "level": 0
+   },
+   "to": {
+    "x": 2809,
+    "z": 3441,
+    "level": 0
+   },
+   "ok": false,
+   "reason": "start (2595,3440,0) not walkable"
+  },
+  {
+   "name": "ardougne gap 2617,3207,1",
+   "from": {
+    "x": 2617,
+    "z": 3207,
+    "level": 1
+   },
+   "to": {
+    "x": 2809,
+    "z": 3441,
+    "level": 0
+   },
+   "ok": true,
+   "cost": 323,
+   "end": {
+    "x": 2809,
+    "z": 3441,
+    "level": 0
+   },
+   "hops": [
+    {
+     "kind": "stair",
+     "action": "Climb-down",
+     "locName": "Staircase",
+     "locId": 1740,
+     "from": {
+      "x": 2618,
+      "z": 3208,
+      "level": 1
+     },
+     "to": {
+      "x": 2615,
+      "z": 3208,
+      "level": 0
+     }
+    },
+    {
+     "kind": "door",
+     "action": "Open",
+     "locName": "Door",
+     "locId": 1530,
+     "from": {
+      "x": 2611,
+      "z": 3209,
+      "level": 0
+     },
+     "to": {
+      "x": 2610,
+      "z": 3209,
+      "level": 0
+     }
+    },
+    {
+     "kind": "door",
+     "action": "Open",
+     "locName": "Door",
+     "locId": 1530,
+     "from": {
+      "x": 2606,
+      "z": 3218,
+      "level": 0
+     },
+     "to": {
+      "x": 2606,
+      "z": 3219,
+      "level": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "large door 2656,3161",
+   "from": {
+    "x": 2656,
+    "z": 3161,
+    "level": 0
+   },
+   "to": {
+    "x": 2809,
+    "z": 3441,
+    "level": 0
+   },
+   "ok": true,
+   "cost": 365,
+   "end": {
+    "x": 2809,
+    "z": 3441,
+    "level": 0
+   },
+   "hops": []
+  },
+  {
+   "name": "port sarim ladder top",
+   "from": {
+    "x": 2955,
+    "z": 3390,
+    "level": 2
+   },
+   "to": {
+    "x": 3029,
+    "z": 3217,
+    "level": 0
+   },
+   "ok": true,
+   "cost": 216,
+   "end": {
+    "x": 3029,
+    "z": 3217,
+    "level": 0
+   },
+   "hops": [
+    {
+     "kind": "stair",
+     "action": "Climb-down",
+     "locName": "Ladder",
+     "locId": 1749,
+     "from": {
+      "x": 2953,
+      "z": 3390,
+      "level": 2
+     },
+     "to": {
+      "x": 2953,
+      "z": 3390,
+      "level": 1
+     }
+    },
+    {
+     "kind": "stair",
+     "action": "Climb-down",
+     "locName": "Ladder",
+     "locId": 1746,
+     "from": {
+      "x": 2953,
+      "z": 3389,
+      "level": 1
+     },
+     "to": {
+      "x": 2953,
+      "z": 3389,
+      "level": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "brimhaven pier area",
+   "from": {
+    "x": 2976,
+    "z": 3325,
+    "level": 0
+   },
+   "to": {
+    "x": 3029,
+    "z": 3217,
+    "level": 0
+   },
+   "ok": false,
+   "reason": "unreachable"
+  }
+ ]
+}

@@ -1,0 +1,20 @@
+{
+  "sceneRenderer": "webgl-cache-terrain",
+  "description": "Existing-session GPU game window with native interfaces, animated cache models, hitmarks, health bars, spot effects, projectiles and bitmap context menus. Compact scene deltas, bounded effect cache and GPU recovery. Manual input requires -stream-input and an acknowledged control lease. Requires the rebuilt capture adapter.",
+  "skins": [
+    {
+      "id": "2004",
+      "label": "2004",
+      "default": true,
+      "assets": "the fleet's own Lost City 289 cache, decoded in the browser by the capture adapter (-capture-cache)",
+      "description": "The only era this provider holds a WORLD for. Terrain, scenery, models, animation, textures and the game's own interfaces all come from the same cache the sessions themselves speak, so nothing has to be mapped across eras and nothing falls back."
+    },
+    {
+      "id": "classic",
+      "label": "RuneScape Classic",
+      "fallback": "2004",
+      "assets": "the operator's own mudclient204 cache (-era-assets, classic/), decoded by this process and served from /stream/era/classic/",
+      "description": "Classic's OWN interface art - its tab strip, panel headers, compass and status bar - around the 2004 world. The world itself is still 2004 and the view says so on screen: Classic is a different world model with its own map data, and the account's position is a 2004 coordinate. Item icons, and any open bank, shop, trade or dialogue, fall back to 2004, which is what this skin's fallback declares."
+    }
+  ]
+}

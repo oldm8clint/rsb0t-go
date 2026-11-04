@@ -1,0 +1,10 @@
+{
+  "direct": {"max": 89},
+  "routes": [
+    {"id": "warp", "type": "socks5", "addr": "127.0.0.1:40000", "max": 89, "dns": "local", "latencyGate": true},
+    {"id": "psiphon", "type": "socks5", "addr": "127.0.0.1:40100", "max": 88, "latencyGate": true, "maxLatencyMs": 1000},
+    {"id": "tor-1", "type": "socks5", "addr": "127.0.0.1:9050", "max": 89, "dns": "remote", "torIsolation": true, "latencyGate": true, "connectTimeoutSeconds": 60, "enabled": false},
+    {"id": "tor-2", "type": "socks5", "addr": "127.0.0.1:9050", "max": 89, "dns": "remote", "torIsolation": true, "latencyGate": true, "connectTimeoutSeconds": 60, "enabled": false},
+    {"id": "paid-1", "type": "socks5", "addr": "proxy.example.net:1080", "username": "service-user", "passwordEnv": "RSB0T_PROXY_PAID_1", "max": 89, "enabled": false}
+  ]
+}

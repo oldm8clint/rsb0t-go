@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Account game graphics</title><link rel="stylesheet" href="capture.css"></head>
+<body>
+<h1>Account game graphics</h1>
+<p id="status">Preparing capture…</p>
+<canvas id="canvas" width="765" height="503" hidden></canvas>
+<canvas id="preview" width="512" height="334"></canvas>
+<p id="backend"></p>
+<p><a id="download" hidden>Download PNG</a> <button id="refresh">Capture again</button></p>
+<p>A frozen game window from the existing session: scene, inventory/sidebar, chat, minimap, and the active interface. Rendering runs here only when requested. Older fleet builds provide a scene-only snapshot. Camera, animation pose and the inventory tab are diagnostic choices, since headless accounts have no visible window.</p>
+<script type="module" src="capture-viewer.js"></script>
+</body></html>

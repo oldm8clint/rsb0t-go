@@ -1,0 +1,4 @@
+{
+  "sceneRenderer": "webgl-tile-geometry",
+  "description": "Live tile and entity geometry from the existing Go session, drawn as real WebGL triangles. Diagnostic view only: no terrain height, cache models, animation, interfaces or input."
+}

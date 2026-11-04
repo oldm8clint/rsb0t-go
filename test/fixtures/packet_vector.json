@@ -1,0 +1,25 @@
+{
+  "_comment": "Known-answer vectors from the real vendored src/client/io/Packet.ts (see ../../packet_reference_vector.ts). crc32_of_123456789 additionally matches the globally standard CRC-32/ISO-HDLC check value (0xCBF43926) for that string, independent of this codebase.",
+  "written": {
+    "bytes": [171, 18, 52, 52, 18, 18, 52, 86, 255, 255, 255, 255, 255, 255, 255, 255, 1, 2, 3, 4, 5, 6, 7, 8, 104, 105, 10],
+    "len": 27
+  },
+  "gsmart": [
+    { "bytes": [0], "want": 0 },
+    { "bytes": [127], "want": 127 },
+    { "bytes": [128, 0], "want": 0 },
+    { "bytes": [255, 255], "want": 32767 }
+  ],
+  "gsmarts": [
+    { "bytes": [64], "want": 0 },
+    { "bytes": [0], "want": -64 },
+    { "bytes": [128, 0], "want": -16384 },
+    { "bytes": [192, 0], "want": 0 }
+  ],
+  "crc32_of_123456789": 3421780262,
+  "bits": {
+    "input": [180, 202, 15],
+    "values": [5, 20, 101, 15],
+    "endPos": 3
+  }
+}

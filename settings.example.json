@@ -1,0 +1,104 @@
+{
+    "version": 1,
+    "global": {
+        "server": {
+            "profile": "live",
+            "profiles": {
+                "live": {
+                    "url": "wss://w1.example.invalid/",
+                    "httpBase": "https://w1.example.invalid/",
+                    "crcTable": [],
+                    "rsaModulus": "",
+                    "rsaModulusFile": "",
+                    "rsaExponent": "65537"
+                },
+                "local": {
+                    "url": "ws://localhost/",
+                    "httpBase": "http://localhost/",
+                    "crcTable": [],
+                    "rsaModulus": "",
+                    "rsaModulusFile": "",
+                    "rsaExponent": ""
+                }
+            },
+            "world": 1,
+            "members": true,
+            "lowMemory": false,
+            "antiCheatPackets": true,
+            "dialTimeout": "15s",
+            "readTimeout": "30s"
+        },
+        "data": {
+            "collision": ""
+        },
+        "login": {
+            "maxSessions": 0,
+            "loginDelay": "0s",
+            "credentialsFile": ""
+        },
+        "runtime": {
+            "memoryLimit": "off",
+            "gcPercent": 100,
+            "maxProcs": 0
+        },
+        "log": {
+            "level": "info",
+            "output": "shared",
+            "file": "",
+            "dir": "logs"
+        },
+        "telemetry": {
+            "memReportEvery": "0s"
+        },
+        "controlPanel": {
+            "enabled": false,
+            "listen": "127.0.0.1:7274",
+            "tokenEnv": "",
+            "tokenFile": "",
+            "layoutFile": "controlpanel-layout.json",
+            "eventHistory": 256,
+            "logHistory": 256,
+            "memoryHistory": 300
+        }
+    },
+    "defaults": {
+        "passwordEnv": "RSB0T_PASSWORD_{USER}",
+        "script": "ProgressiveCrafter",
+        "settings": { "mule": "mulecon", "muleAt": 5000 },
+        "startDelay": "0s",
+        "startJitter": "0s",
+        "maxRuntime": "0s",
+        "state": {
+            "viewRadius": 15,
+            "trackers": {
+                "players": false,
+                "npcs": false,
+                "groundItems": false,
+                "locs": false,
+                "chat": false
+            }
+        },
+        "reconnect": {
+            "initial": "6s",
+            "max": "5m",
+            "multiplier": 2,
+            "jitter": 0.2,
+            "maxFailures": 15
+        }
+    },
+    "accounts": [
+        {
+            "username": "example1"
+        },
+        {
+            "username": "example2",
+            "settings": { "muleAt": 2000 },
+            "state": { "viewRadius": 8, "trackers": { "npcs": true, "locs": true } }
+        },
+        {
+            "username": "example3",
+            "enabled": false,
+            "logLevel": "debug"
+        }
+    ]
+}

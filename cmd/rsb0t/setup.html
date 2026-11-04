@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>rsb0t-go setup</title>
+<style>
+  :root { color-scheme: light dark; --bg:#f6f4ef; --fg:#1d1b16; --muted:#6b665a; --card:#fff; --line:#d9d4c7; --accent:#8a5a14; --bad:#a3261a; --ok:#2d6a2d; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#17150f; --fg:#eee9dc; --muted:#a39d8b; --card:#201d15; --line:#3b3626; --accent:#e0a54a; --bad:#ff8a7a; --ok:#8fd18f; } }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.5 system-ui, sans-serif; }
+  main { max-width: 880px; margin: 0 auto; padding: 24px 16px 64px; }
+  h1 { font-size: 24px; margin: 0 0 4px; } h2 { font-size: 17px; margin: 0 0 12px; }
+  p.lead { color:var(--muted); margin:0 0 20px; }
+  section { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px; margin-bottom:16px; }
+  label { display:block; font-weight:600; margin:10px 0 4px; }
+  input, select, textarea { width:100%; padding:8px 10px; border:1px solid var(--line); border-radius:6px; background:var(--bg); color:var(--fg); font:inherit; }
+  input[type=checkbox] { width:auto; }
+  .row { display:grid; grid-template-columns: 1fr 1fr 1fr auto; gap:10px; align-items:end; }
+  @media (max-width: 640px) { .row { grid-template-columns: 1fr; } }
+  button { padding:8px 14px; border:1px solid var(--accent); background:var(--accent); color:#fff; border-radius:6px; font:inherit; cursor:pointer; }
+  @media (prefers-color-scheme: dark) { button { color:#17150f; } }
+  button.plain { background:transparent; color:var(--accent); }
+  button.danger { background:transparent; color:var(--bad); border-color:var(--bad); }
+  button:disabled { opacity:.5; cursor:default; }
+  table { width:100%; border-collapse:collapse; } th, td { text-align:left; padding:8px 6px; border-bottom:1px solid var(--line); vertical-align:middle; }
+  td select { min-width: 11em; }
+  th { color:var(--muted); font-weight:600; font-size:13px; }
+  .help { color:var(--muted); font-size:13px; margin-top:2px; }
+  #msg { min-height:1.5em; margin:0 0 12px; } .bad { color:var(--bad); } .ok { color:var(--ok); }
+  .grp { margin-top:16px; font-size:13px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); }
+  .actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:14px; }
+  .tag { font-size:12px; padding:1px 6px; border:1px solid var(--line); border-radius:99px; color:var(--muted); }
+  ul.steps { list-style:none; padding:0; margin:12px 0 0; } ul.steps li { padding:4px 0; }
+  ul.steps b { display:inline-block; min-width:4.5em; } .warn { color:var(--accent); }
+  details { margin-top:10px; } summary { cursor:pointer; color:var(--muted); }
+  #verdict { font-weight:600; }
+</style>
+</head>
+<body>
+<main>
+  <h1>rsb0t-go setup</h1>
+  <p class="lead">Choose your server, add your accounts, choose what each one does, then press Start. Passwords stay on this computer, in <code id="home">the rsb0t-data folder</code>, and are never shown again.</p>
+  <div id="msg" role="status" aria-live="polite"></div>
+
+  <section aria-labelledby="srvh">
+    <h2 id="srvh">1. Your game server</h2>
+    <div id="current" class="help"></div>
+    <form id="srvform" autocomplete="off">
+      <label for="addr">Server address</label>
+      <input id="addr" placeholder="https://example-server.com" spellcheck="false" inputmode="url">
+      <div class="help">The address of the server's website or of the page where you play, like <code>https://example-server.com</code> or <code>w1.example-server.com</code>. It must be a RuneScape 2 revision 289 server (for example one built on LostCity); other revisions will not work.</div>
+      <details id="keybox">
+        <summary>Login key (only if the check asks for it)</summary>
+        <div class="help">The server keeps a "login key": two numbers your password is locked with before it is sent. rsb0t normally reads them from the server by itself. Fill these boxes only when the check says it could not, with the numbers the server's staff give you (or that the check tells you where to copy from). Leave them empty otherwise.</div>
+        <label for="mod">First number (the long one, 150 digits or more)</label><textarea id="mod" rows="3" spellcheck="false"></textarea>
+        <label for="exp">Second number (leave empty if you were given only one)</label><input id="exp" spellcheck="false">
+        <div class="help">A key typed here is kept and used as it is. If the server later changes its key (some do when they restart), every login is refused with "response 6" until you paste the new one.</div>
+      </details>
+      <details id="gamebox">
+        <summary>Game connection address (only if the server's staff give you one)</summary>
+        <div class="help">Most servers run the game on the same address as their website, and rsb0t finds it. If the check says the game connection is not where it looked, ask the server's staff for the game's address (it starts with <code>wss://</code> or <code>ws://</code>) and type it here.</div>
+        <label for="game">Game connection address</label><input id="game" placeholder="wss://example-server.com:43595/" spellcheck="false" inputmode="url">
+      </details>
+      <div class="actions">
+        <button type="button" id="checkbtn" class="plain">Check connection</button>
+        <button type="submit" id="usebtn">Use this server</button>
+      </div>
+    </form>
+    <div id="report" hidden>
+      <ul id="steps" class="steps"></ul>
+      <p id="verdict"></p>
+    </div>
+  </section>
+
+  <section aria-labelledby="addh">
+    <h2 id="addh">2. Add an account</h2>
+    <form id="add" autocomplete="off">
+      <div class="row">
+        <div><label for="u">Login name</label><input id="u" maxlength="12" required spellcheck="false"></div>
+        <div><label for="p">Password</label><input id="p" type="password" required autocomplete="new-password"></div>
+        <div><label for="s">Script</label><select id="s"><option value="">(none: just log in)</option></select></div>
+        <div><button type="submit">Add</button></div>
+      </div>
+      <div class="help">A login name is up to 12 letters, digits, spaces or underscores. Add only accounts that are yours: on some servers a login with a new name creates that account. Start with no script to check the login works; you can change the script and its settings after adding.</div>
+      <div class="help" id="maphelp" hidden>Scripts marked "needs map data" walk around the world and will not start without a collision pack (the <code>packPath</code> setting), which this download does not include. Without it, choose "(none: just log in)" or a script without the mark.</div>
+    </form>
+  </section>
+
+  <section aria-labelledby="listh">
+    <h2 id="listh">3. Your accounts</h2>
+    <table id="list" aria-describedby="listh"><thead><tr><th>Name</th><th>Script</th><th>Password</th><th></th></tr></thead><tbody></tbody></table>
+    <div id="empty" class="help">No accounts yet.</div>
+  </section>
+
+  <section id="edit" hidden aria-labelledby="edith">
+    <h2 id="edith">Settings</h2>
+    <form id="settings"></form>
+  </section>
+
+  <div class="actions">
+    <button id="start" disabled>Start the panel</button>
+    <span class="help" id="starthelp">Choose a server and add at least one account first. To look around without either, close this page and the rsb0t window, then start the demo (the README's "Try the demo first" says how).</span>
+  </div>
+</main>
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+let state = { accounts: [], scripts: [] };
+let editing = null;
+
+function say(text, bad) { const m = $("msg"); m.textContent = text || ""; m.className = bad ? "bad" : "ok"; }
+
+async function api(method, url, body) {
+  const r = await fetch(url, {
+    method, headers: { "X-Rsb0t-Setup": "1", "Content-Type": "application/json" },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || r.statusText);
+  return j;
+}
+
+function el(tag, props, ...kids) {
+  const e = document.createElement(tag);
+  Object.assign(e, props || {});
+  for (const k of kids) e.append(k);
+  return e;
+}
+
+function render() {
+  $("home").textContent = state.home || "rsb0t-data";
+  const sel = $("s");
+  const label = s => s.name + (s.needsMap && !state.hasMapData ? " (needs map data)" : "");
+  if (sel.options.length <= 1) for (const s of state.scripts) sel.append(el("option", { value: s.name, textContent: label(s) }));
+  $("maphelp").hidden = !!state.hasMapData || !state.scripts.some(s => s.needsMap);
+  const body = $("list").tBodies[0];
+  body.replaceChildren();
+  for (const a of state.accounts) {
+    const pick = el("select", { ariaLabel: "Script for " + a.username });
+    pick.append(el("option", { value: "", textContent: "(none)" }));
+    for (const s of state.scripts) pick.append(el("option", { value: s.name, textContent: label(s), selected: s.name === a.script }));
+    pick.onchange = () => save(a.username, pick.value, {});
+    const cfg = el("button", { className: "plain", textContent: "Settings", type: "button" });
+    cfg.onclick = () => openSettings(a.username);
+    const del = el("button", { className: "danger", textContent: "Remove", type: "button" });
+    del.onclick = async () => {
+      if (!confirm("Remove " + a.username + " and its stored password?")) return;
+      try { state = await api("DELETE", "/api/setup/accounts?name=" + encodeURIComponent(a.username)); editing = null; say("Removed " + a.username + "."); render(); }
+      catch (e) { say(e.message, true); }
+    };
+    const tr = el("tr", {},
+      el("td", { textContent: a.username }),
+      el("td", {}, pick),
+      el("td", {}, el("span", { className: "tag", textContent: a.hasPassword ? "stored" : "missing" })),
+      el("td", {}, cfg, " ", del));
+    body.append(tr);
+  }
+  $("empty").hidden = state.accounts.length > 0;
+  $("list").hidden = state.accounts.length === 0;
+  const ready = state.accounts.length > 0 && !!state.server;
+  $("start").disabled = !ready;
+  $("starthelp").hidden = ready;
+  const cur = $("current");
+  if (state.server) {
+    cur.textContent = "Using " + (state.server.address || state.server.httpBase) + " (game connection " + state.server.wsURL + ")" +
+      (state.server.worlds && state.server.worlds.length > 1 ? ", worlds " + state.server.worlds.join(", ") : "") + ". To change it, type another address below.";
+    if (!$("addr").value) $("addr").value = state.server.address || state.server.httpBase;
+  } else {
+    cur.textContent = "No server chosen yet. Type its address and press Check connection.";
+  }
+  if (editing) openSettings(editing, true);
+  else $("edit").hidden = true;
+}
+
+async function save(username, script, settings) {
+  try { state = await api("PUT", "/api/setup/settings", { username, script, settings }); say("Saved " + username + "."); render(); }
+  catch (e) { say(e.message, true); render(); }
+}
+
+function openSettings(username, keep) {
+  editing = username;
+  const a = state.accounts.find(x => x.username === username);
+  if (!a) { editing = null; $("edit").hidden = true; return; }
+  const script = state.scripts.find(s => s.name === a.script);
+  const f = $("settings");
+  f.replaceChildren();
+  $("edith").textContent = "Settings for " + username + (a.script ? " (" + a.script + ")" : "");
+  if (!a.script) {
+    f.append(el("p", { className: "help", textContent: "Choose a script for this account in the list first." }));
+    $("edit").hidden = false; return;
+  }
+  const inputs = {};
+  if (script && script.fields.length) {
+    let group = null;
+    for (const fld of script.fields) {
+      if (fld.group !== group) { group = fld.group; if (group) f.append(el("div", { className: "grp", textContent: group })); }
+      const id = "f_" + fld.key;
+      const cur = a.settings[fld.key];
+      let input;
+      if (fld.type === "boolean") {
+        input = el("input", { type: "checkbox", id, checked: cur === undefined ? !!fld.default : !!cur });
+      } else if (fld.options && fld.options.length && fld.type === "string") {
+        input = el("select", { id });
+        for (const o of fld.options) input.append(el("option", { value: o, textContent: o, selected: (cur === undefined ? fld.default : cur) === o }));
+      } else if (fld.type === "number") {
+        input = el("input", { type: "number", id, value: cur === undefined ? (fld.default ?? "") : cur });
+        if (fld.min != null) input.min = fld.min;
+        if (fld.max != null) input.max = fld.max;
+        input.step = "any";
+      } else if (fld.type === "string[]") {
+        input = el("input", { type: "text", id, value: (cur === undefined ? (fld.default || []) : cur).join(", ") });
+      } else {
+        input = el("input", { type: "text", id, value: cur === undefined ? (fld.default ?? "") : cur });
+      }
+      inputs[fld.key] = { input, fld };
+      const lab = el("label", { htmlFor: id, textContent: fld.label });
+      if (fld.type === "boolean") { f.append(el("div", {}, input, " ", lab)); lab.style.display = "inline"; }
+      else f.append(lab, input);
+      if (fld.help) f.append(el("div", { className: "help", textContent: fld.help }));
+    }
+  } else {
+    const ta = el("textarea", { id: "raw", rows: 8, spellcheck: false, value: JSON.stringify(a.settings, null, 2) });
+    f.append(el("label", { htmlFor: "raw", textContent: "Settings (a JSON object)" }), ta,
+      el("div", { className: "help", textContent: "This script reads its settings by name. Leave {} for the defaults; docs/bot_script_settings.md lists the keys." }));
+    inputs.__raw = ta;
+  }
+  const ok = el("button", { type: "submit", textContent: "Save settings" });
+  const close = el("button", { type: "button", className: "plain", textContent: "Close", onclick: () => { editing = null; $("edit").hidden = true; } });
+  f.append(el("div", { className: "actions" }, ok, close));
+  f.onsubmit = ev => {
+    ev.preventDefault();
+    let out = {};
+    if (inputs.__raw) {
+      try { out = JSON.parse(inputs.__raw.value || "{}"); } catch (e) { say("The settings are not valid JSON: " + e.message, true); return; }
+      if (out === null || typeof out !== "object" || Array.isArray(out)) { say("The settings must be a JSON object, like {}.", true); return; }
+    } else {
+      for (const [k, { input, fld }] of Object.entries(inputs)) {
+        let v;
+        if (fld.type === "boolean") v = input.checked;
+        else if (fld.type === "number") { if (input.value === "") continue; v = Number(input.value); }
+        else if (fld.type === "string[]") v = input.value.split(",").map(s => s.trim()).filter(Boolean);
+        else v = input.value;
+        if (JSON.stringify(v) !== JSON.stringify(fld.default ?? (fld.type === "boolean" ? false : fld.type === "string[]" ? [] : ""))) out[k] = v; // only what differs from the default
+      }
+    }
+    save(username, a.script, out);
+  };
+  $("edit").hidden = false;
+  if (!keep) $("edit").scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
+$("add").onsubmit = async ev => {
+  ev.preventDefault();
+  try {
+    state = await api("POST", "/api/setup/accounts", { username: $("u").value, password: $("p").value, script: $("s").value });
+    say("Added " + $("u").value.trim() + ".");
+    $("u").value = ""; $("p").value = ""; $("u").focus();
+    render();
+  } catch (e) { say(e.message, true); }
+};
+
+function showReport(rep) {
+  const ul = $("steps");
+  ul.replaceChildren();
+  const words = { ok: "OK", warn: "Note", fail: "Problem", skipped: "Skipped" };
+  for (const s of rep.steps || []) {
+    ul.append(el("li", { className: s.status === "fail" ? "bad" : s.status === "warn" ? "warn" : "ok" },
+      el("b", { textContent: words[s.status] || s.status }), " " + s.name + ": " + s.detail));
+  }
+  $("verdict").textContent = rep.verdict || "";
+  $("verdict").className = rep.ready ? "ok" : "bad";
+  $("report").hidden = false;
+  const keyStep = (rep.steps || []).find(s => s.name === "Login key");
+  if (keyStep && keyStep.status !== "ok") $("keybox").open = true;
+  const gameStep = (rep.steps || []).find(s => s.name === "Game connection");
+  if (gameStep && gameStep.status === "fail") $("gamebox").open = true;
+}
+
+function serverBody() { return { address: $("addr").value, modulus: $("mod").value, exponent: $("exp").value, game: $("game").value }; }
+
+async function busy(btn, label, fn) {
+  const was = btn.textContent;
+  btn.disabled = true; btn.textContent = label;
+  try { await fn(); } catch (e) { say(e.message, true); }
+  finally { btn.disabled = false; btn.textContent = was; }
+}
+
+$("checkbtn").onclick = () => busy($("checkbtn"), "Checking...", async () => {
+  say("");
+  const j = await api("POST", "/api/setup/check", serverBody());
+  showReport(j.report);
+});
+
+$("srvform").onsubmit = ev => {
+  ev.preventDefault();
+  busy($("usebtn"), "Checking...", async () => {
+    const j = await api("POST", "/api/setup/server", serverBody());
+    showReport(j.report);
+    state = j; render();
+    if (j.saved) say(j.report.ready ? "Server saved. Now add your accounts below." : "Server saved. You can add accounts now, but they cannot log in until the problems above are fixed; fix them and press Use this server again.", !j.report.ready);
+    else say("The server was not saved: see the problems above.", true);
+  });
+};
+
+$("start").onclick = async () => {
+  try {
+    await api("POST", "/api/setup/start", {});
+    document.body.innerHTML = "<main><h1>Starting the panel</h1><p class='lead' id='wait'>This page will move to the panel in a few seconds. If it does not, open <a href='/'>the same address</a> again.</p></main>";
+    const began = Date.now();
+    setTimeout(function wait() {
+      if (Date.now() - began > 30000) {
+        document.getElementById("wait").textContent = "The panel has not started after 30 seconds. Look at the window where rsb0t is running: its last lines say what went wrong (for example the server could not be reached). Fix that, then run rsb0t again.";
+      }
+      fetch("/api/status").then(r => r.ok ? location.reload() : setTimeout(wait, 1000)).catch(() => setTimeout(wait, 1000));
+    }, 2500);
+  } catch (e) { say(e.message, true); }
+};
+
+(async () => {
+  try { state = await api("GET", "/api/setup/state"); render(); }
+  catch (e) { say("Could not load the setup state: " + e.message, true); }
+})();
+</script>
+</body>
+</html>

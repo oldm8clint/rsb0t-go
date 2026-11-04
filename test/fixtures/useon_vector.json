@@ -1,0 +1,150 @@
+[
+  {
+    "name": "OPNPCU",
+    "opcode": 160,
+    "length": 8,
+    "fields": {
+      "npc": 1234,
+      "useObj": 1925,
+      "useSlot": 3,
+      "useCom": 3214
+    },
+    "bytes": [
+      4,
+      210,
+      7,
+      133,
+      0,
+      3,
+      12,
+      142
+    ],
+    "decoded": {
+      "npcSlot": 1234,
+      "useObj": 1925,
+      "useSlot": 3,
+      "useCom": 3214,
+      "category": {
+        "id": 1,
+        "limit": 5
+      }
+    }
+  },
+  {
+    "name": "OPHELDU",
+    "opcode": 200,
+    "length": 12,
+    "fields": {
+      "obj": 590,
+      "slot": 27,
+      "com": 3214,
+      "useObj": 1511,
+      "useSlot": 0,
+      "useCom": 3214
+    },
+    "bytes": [
+      2,
+      78,
+      0,
+      27,
+      12,
+      142,
+      5,
+      231,
+      0,
+      0,
+      12,
+      142
+    ],
+    "decoded": {
+      "obj": 590,
+      "slot": 27,
+      "com": 3214,
+      "useObj": 1511,
+      "useSlot": 0,
+      "useCom": 3214,
+      "category": {
+        "id": 1,
+        "limit": 5
+      }
+    }
+  },
+  {
+    "name": "OPOBJU",
+    "opcode": 55,
+    "length": 12,
+    "fields": {
+      "x": 3222,
+      "z": 3218,
+      "obj": 1511,
+      "useObj": 590,
+      "useSlot": 5,
+      "useCom": 3214
+    },
+    "bytes": [
+      12,
+      150,
+      12,
+      146,
+      5,
+      231,
+      2,
+      78,
+      0,
+      5,
+      12,
+      142
+    ],
+    "decoded": {
+      "x": 3222,
+      "z": 3218,
+      "obj": 1511,
+      "useObj": 590,
+      "useSlot": 5,
+      "useCom": 3214,
+      "category": {
+        "id": 1,
+        "limit": 5
+      }
+    }
+  },
+  {
+    "name": "OPLOCU",
+    "opcode": 184,
+    "length": 12,
+    "fields": {
+      "x": 2711,
+      "z": 3471,
+      "loc": 2644,
+      "useObj": 1779,
+      "useSlot": 12,
+      "useCom": 3214
+    },
+    "bytes": [
+      10,
+      151,
+      13,
+      143,
+      10,
+      84,
+      6,
+      243,
+      0,
+      12,
+      12,
+      142
+    ],
+    "decoded": {
+      "x": 2711,
+      "z": 3471,
+      "loc": 2644,
+      "useObj": 1779,
+      "useSlot": 12,
+      "useCom": 3214,
+      "category": {
+        "id": 1,
+        "limit": 5
+      }
+    }
+  }
+]
