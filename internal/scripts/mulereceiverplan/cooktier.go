@@ -36,6 +36,8 @@ type FishTier struct {
 	Raw    string
 	Cooked string
 	Level  int
+	// Skip is a fish the mule leaves raw (HighestTierInBank): its heal is not worth the round.
+	Skip bool
 }
 
 // FishTiers is the ladder in level order — ties (shrimps/anchovies, both level 1) broken by
@@ -45,8 +47,10 @@ type FishTier struct {
 var FishTiers = []FishTier{
 	{Raw: "Raw shrimps", Cooked: "Shrimps", Level: 1},
 	{Raw: "Raw anchovies", Cooked: "Anchovies", Level: 1},
-	{Raw: "Raw mackerel", Cooked: "Mackerel", Level: 10},
-	{Raw: "Raw cod", Cooked: "Cod", Level: 18},
+	// Left raw (a user request: "we should ignore the mackerel as the heal from it is negaligable, same goes with cod"): they
+	// heal 6 and 7, and the bank's millions of each took the mule's time whenever the better fish ran out.
+	{Raw: "Raw mackerel", Cooked: "Mackerel", Level: 10, Skip: true},
+	{Raw: "Raw cod", Cooked: "Cod", Level: 18, Skip: true},
 	{Raw: "Raw tuna", Cooked: "Tuna", Level: 30},
 	{Raw: "Raw lobster", Cooked: "Lobster", Level: 40},
 	{Raw: "Raw bass", Cooked: "Bass", Level: 43},
@@ -85,7 +89,7 @@ var FishTiers = []FishTier{
 func HighestTierInBank(bankRaw map[string]int, cookingLevel int) (FishTier, bool) {
 	for i := len(FishTiers) - 1; i >= 0; i-- {
 		t := FishTiers[i]
-		if t.Level > cookingLevel {
+		if t.Level > cookingLevel || t.Skip {
 			continue
 		}
 		if bankRaw[strings.ToLower(t.Raw)] > 0 {

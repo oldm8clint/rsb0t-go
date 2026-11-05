@@ -164,7 +164,19 @@ type KQSettings struct {
 	FlickMaxLateTicks   int  `json:"kqFlickMaxLateTicks"`
 	FlickHitWindowTicks int  `json:"kqFlickHitWindowTicks"`
 	FlickTickGapMs      int  `json:"kqFlickTickGapMs"`
+	// Lattice stands every wave member on its own seat of a spacing lattice at her, pairwise at least six tiles apart
+	// (scarabplan.QueenLattice), and holds each account at the chamber landing until Protect from Magic reads on
+	// (kqLattice, 5 Nov 2026, private evidence notes change 1). Her ranged volley hits up to five players
+	// within 5 tiles of her TARGET with no accuracy roll and no prayer against it once Protect from Magic is up, so accounts
+	// six apart can only be hit when they are the target. Members past the lattice's capacity wait out of her hunt range for a
+	// seat. It needs kqWave; OFF by default and unproven live. LatticeEdge (kqLatticeEdge, 3 to 10, default 6) is the furthest
+	// seat from her footprint: casts from range 8 once had none accepted in the lab (Standoff), so it starts at 6.
+	Lattice     bool `json:"kqLattice"`
+	LatticeEdge int  `json:"kqLatticeEdge"`
 }
+
+// DefaultLatticeEdge is kqLatticeEdge's default (scarabplan.LatticeDefaultEdge; kept in step by a test).
+const DefaultLatticeEdge = 6
 
 // The prayer flick's defaults (scarabplan.DefaultKQFlick*; kept in step by a test there).
 const (
@@ -189,7 +201,7 @@ func DefaultKQSettings() KQSettings {
 		SpawnWindow: DefaultSpawnWindowSettings(), ReturnRoute: true, ReturnLaws: DefaultReturnLaws,
 		EscapePrayerPoints: DefaultEscapePrayerPoints, EscapeCamelot: true, ReturnPray: true, PrayerOffIdle: true,
 		PrayerFlick: true, FlickMaxLateTicks: DefaultFlickMaxLateTicks, FlickHitWindowTicks: DefaultFlickHitWindowTicks,
-		FlickTickGapMs: DefaultFlickTickGapMs}
+		FlickTickGapMs: DefaultFlickTickGapMs, LatticeEdge: DefaultLatticeEdge}
 }
 
 // Normalised clamps nonsense to something the stage can act on.
@@ -248,6 +260,9 @@ func (s KQSettings) Normalised() KQSettings {
 	}
 	if s.FlickHitWindowTicks < 0 || s.FlickHitWindowTicks > 3 {
 		s.FlickHitWindowTicks = d.FlickHitWindowTicks
+	}
+	if s.LatticeEdge < 3 || s.LatticeEdge > 10 {
+		s.LatticeEdge = d.LatticeEdge
 	}
 	if s.FlickTickGapMs < 600 || s.FlickTickGapMs > 10000 {
 		s.FlickTickGapMs = d.FlickTickGapMs

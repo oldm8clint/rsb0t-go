@@ -2,8 +2,7 @@
 
 > **rsb0t-go**, said "RS bot go".
 
-<!-- WATCH THE LAUNCH VIDEO: replace the line below with the YouTube link when it is published. -->
-> **Watch the launch video:** _(link coming soon)_
+> **Watch the launch video:** https://youtu.be/oh_qeoAd04I
 
 A headless client for RuneScape 2 private servers on **revision 289**, such as the many servers built on the
 LostCity engine (Engine-TS 289). Point it at any such server. It speaks the game's WebSocket protocol directly,
@@ -43,7 +42,8 @@ You do not need to know anything about programming for this. It takes about five
    the developer: right-click `rsb0t`, choose Open, then Open again.*
 4. **Enter your server's address.** At the top of the page, under **1. Your game server**, type the address of
    the server you play on: the address of its website or of the page where you play, for example
-   `https://example-server.com`. Press **Check connection**. After a few seconds you see a short list of
+   `https://example-server.com`. The box starts with `rs2b2t.com` filled in, so leave it for that server or type
+   your own. Press **Check connection**. After a few seconds you see a short list of
    checks, each marked **OK**, **Note** or **Problem**, and one sentence underneath that says whether rsb0t can
    use the server. When it says **Ready**, press **Use this server**.
 
@@ -53,7 +53,7 @@ You do not need to know anything about programming for this. It takes about five
 5. **Add an account.** Under **2. Add an account**, type the account's login name and password. Use only
    accounts that are yours, and type the name exactly: on some servers, logging in with a name that does not
    exist yet creates a new account. Your password is kept only on this computer and is never shown again.
-6. **Leave the script on "none" the first time.** The **Script** list says what the account does after it
+6. **Leave the script on "none" the first time** ([which script do I want?](docs/scripts.md)). The **Script** list says what the account does after it
    logs in. Leave it on *(none: just log in)* and press **Add**, so the first start only proves the login
    works. You can choose a script later under **3. Your accounts**, where **Settings** opens a short form
    for it.
@@ -188,7 +188,10 @@ MuleReceiver, ProgressiveCrafter, ProgressiveFisher, ProgressiveThiever, Progres
 ProgressiveWoodcutter, QuestLadder, RuneCarrier, RuneRunner, ShopBuyout, SmelterBot, ToadCollector, VialFiller.
 `rsb0t scripts` prints the list this build has.
 
-**Needs the map data:** every script except AdvancedFighter, Alcher, BassOysterCaskets, BoneBurier,
+**How to choose and start one:** [docs/scripts.md](docs/scripts.md) says what each script does, what it needs
+first and which settings matter.
+
+**Needs the map data:** every script except AdvancedFighter, Alcher, BoneBurier,
 CasketOpener, MarketBulkBuy and MeleeFlincher refuses to start without a collision pack
 (and those may still walk somewhere and need it then).
 

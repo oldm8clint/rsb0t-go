@@ -159,7 +159,7 @@ type scriptInfo struct {
 // needsMapData are the scripts that refuse to start without a collision pack (internal/bot: each checks
 // ctx.Pack == nil at start). TestNeedsMapDataNamesRealScripts keeps the names honest.
 var needsMapData = map[string]bool{
-	"AntipoisonCollector": true, "AntipoisonMaker": true, "BankFletcher": true, "BarbarianAgility": true,
+	"AntipoisonCollector": true, "AntipoisonMaker": true, "BankFletcher": true, "BarbarianAgility": true, "BassOysterCaskets": true,
 	"BowStringer": true, "MasterCrafter": true, "CombatTrainer": true, "EssenceMiner": true, "FishingTrawler": true,
 	"FlaxPicker": true, "GemCutter": true, "HerbCleaner": true, "LootChestFisher": true, "MuleReceiver": true,
 	"ProgressiveCrafter": true, "ProgressiveFisher": true, "ProgressiveThiever": true, "ProgressiveWCFletch": true,

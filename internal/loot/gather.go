@@ -92,6 +92,10 @@ func Migrate(s Source) Source {
 	if (s.Kind == KindOpenable || s.Kind == KindGathering) && s.Action == ActionOpen && IsOysterName(s.Name) {
 		s = oysterOpen(s.ID, s.Name)
 	}
+	// Superheat moved to the Smithing card on 2 Nov 2026; a row recorded before that kept Magic and hid its bars.
+	if s.Kind == KindProduction && strings.TrimSuffix(s.Action, runesSuffix) == ActionSuperheat {
+		s.Skill = SkillSmithing
+	}
 	return thievingShape(sharedKill(s))
 }
 

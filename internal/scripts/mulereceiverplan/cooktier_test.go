@@ -33,10 +33,21 @@ func TestHighestTierInBankEmptyBank(t *testing.T) {
 }
 
 func TestHighestTierInBankZeroCountDoesNotCount(t *testing.T) {
-	bank := map[string]int{"raw shark": 0, "raw cod": 5}
+	bank := map[string]int{"raw shark": 0, "raw lobster": 5}
 	got, ok := HighestTierInBank(bank, 99)
-	if !ok || got.Raw != "Raw cod" {
-		t.Errorf("HighestTierInBank = %+v, ok=%v, want Raw cod (shark at 0 should be skipped)", got, ok)
+	if !ok || got.Raw != "Raw lobster" {
+		t.Errorf("HighestTierInBank = %+v, ok=%v, want Raw lobster (shark at 0 should be skipped)", got, ok)
+	}
+}
+
+func TestHighestTierInBankLeavesMackerelAndCodRaw(t *testing.T) {
+	bank := map[string]int{"raw mackerel": 6_000_000, "raw cod": 4_000_000}
+	if got, ok := HighestTierInBank(bank, 99); ok {
+		t.Errorf("HighestTierInBank = %+v, want nothing to cook", got)
+	}
+	bank["raw shrimps"] = 5
+	if got, ok := HighestTierInBank(bank, 99); !ok || got.Raw != "Raw shrimps" {
+		t.Errorf("HighestTierInBank = %+v, ok=%v, want Raw shrimps past the two left raw", got, ok)
 	}
 }
 
@@ -52,12 +63,12 @@ func TestHighestTierInBankLowerCaseKeyedMap(t *testing.T) {
 }
 
 func TestHighestTierInBankGatedByCookingLevel(t *testing.T) {
-	// Only cod (level 18) and shark (level 80) are banked; a level-20 mule can cook cod
+	// Only tuna (level 30) and shark (level 80) are banked; a level-35 mule can cook tuna
 	// but must not attempt shark, even though shark would otherwise win as the highest tier.
-	bank := map[string]int{"raw cod": 10, "raw shark": 10}
-	got, ok := HighestTierInBank(bank, 20)
-	if !ok || got.Raw != "Raw cod" {
-		t.Errorf("HighestTierInBank = %+v, ok=%v, want Raw cod", got, ok)
+	bank := map[string]int{"raw tuna": 10, "raw shark": 10}
+	got, ok := HighestTierInBank(bank, 35)
+	if !ok || got.Raw != "Raw tuna" {
+		t.Errorf("HighestTierInBank = %+v, ok=%v, want Raw tuna", got, ok)
 	}
 }
 

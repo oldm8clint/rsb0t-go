@@ -170,7 +170,8 @@ function render() {
       (state.server.worlds && state.server.worlds.length > 1 ? ", worlds " + state.server.worlds.join(", ") : "") + ". To change it, type another address below.";
     if (!$("addr").value) $("addr").value = state.server.address || state.server.httpBase;
   } else {
-    cur.textContent = "No server chosen yet. Type its address and press Check connection.";
+    cur.textContent = "No server chosen yet. rs2b2t.com is filled in: press Check connection, or type another address.";
+    if (!$("addr").value) $("addr").value = "rs2b2t.com";
   }
   if (editing) openSettings(editing, true);
   else $("edit").hidden = true;

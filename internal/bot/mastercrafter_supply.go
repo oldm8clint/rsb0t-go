@@ -291,10 +291,10 @@ func (b *masterCrafterBot) superheatRound(ctx *Context, d *fleetrunner.Deps, sta
 	keep := func(id int32) bool { return previous != 0 && id == previous }
 	usedUp, fails := false, 0
 	for hold() {
-		run := mastercraftrunner.SuperheatRun(d, post, mastercraftrunner.HeatOptions{Pick: pick, Keep: keep, Staff: worn, Hold: hold, Quick: &qb})
+		run := mastercraftrunner.SuperheatRun(d, post, mastercraftrunner.HeatOptions{Pick: pick, Keep: keep, Staff: worn, Hold: hold, Quick: &qb,
+			OnMade: func(bar mastercraftplan.Bar, n int) { lootSuperheat(ctx, bar, n, worn) }})
 		b.logf(ctx, "superheat: %s", run.Describe())
 		for _, m := range run.Made {
-			lootSuperheat(ctx, m.Bar, m.Casts, worn)
 			bars += m.Casts
 		}
 		if run.Casts > 0 {

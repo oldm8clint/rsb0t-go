@@ -213,7 +213,10 @@ type Rally struct {
 	// peakReady is the highest ready count ever observed, which is what a report should quote
 	// when it says how big the crowd was — the count at the instant of engaging is a sample.
 	peakReady int
-	done      chan struct{}
+	// roster is who was present and ready at the instant the verdict latched, sorted by name: the wave's
+	// membership, frozen, so every account derives the same seating from it (Roster).
+	roster []string
+	done   chan struct{}
 }
 
 // New opens a rally. now may be nil for time.Now; an injected clock is what makes the tests
@@ -290,6 +293,12 @@ func (r *Rally) evaluateLocked() {
 	if r.last.Verdict.Terminal() {
 		r.latched = true
 		r.engagedAt = now
+		for name, m := range r.members {
+			if m.ready && now.Sub(m.at) <= r.p.Stale {
+				r.roster = append(r.roster, name)
+			}
+		}
+		sort.Strings(r.roster)
 		close(r.done)
 	}
 }
@@ -374,4 +383,12 @@ func (r *Rally) Snapshot() Snapshot {
 	}
 	sort.Slice(s.Members, func(i, j int) bool { return s.Members[i].Name < s.Members[j].Name })
 	return s
+}
+
+// Roster is the accounts that were present and ready when the verdict latched, sorted by name, or nil before
+// the latch. It is frozen at that instant, so every member of the wave reads the same list however late it asks.
+func (r *Rally) Roster() []string {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return append([]string(nil), r.roster...)
 }

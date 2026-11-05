@@ -63,6 +63,9 @@ type HeatOptions struct {
 	// Quick is the booth the round's first bank visit learned (FullVisit); a run without it learns
 	// the booth when it opens the bank.
 	Quick *QuickBank
+	// OnMade, when set, is told each landed cast as it lands: a run over a big ore stack lasts hours, and the loot
+	// tracker should not wait for it.
+	OnMade func(bar mastercraftplan.Bar, n int)
 }
 
 // HeatMade is the casts that landed on one bar.
@@ -83,6 +86,7 @@ type HeatRun struct {
 	Loads, Casts, Copies, Booths, Reopens, Late, Lag int
 	MagicXP, SmithingXP, Ticks                       int
 	Made                                             []HeatMade
+	onMade                                           func(bar mastercraftplan.Bar, n int)
 	// Reason is "done" (nothing left the bank and the pack can make), "level", "runes",
 	// "smithing", "ore" (a refusal in the chat), "no-open" (the bank would not open), "stalled"
 	// (casts or loads that did not land), "held" or "stopped"; Why says more.
@@ -120,6 +124,9 @@ func (r *HeatRun) made(bar mastercraftplan.Bar, n int) {
 		return
 	}
 	r.Casts += n
+	if r.onMade != nil {
+		r.onMade(bar, n)
+	}
 	for i := range r.Made {
 		if r.Made[i].Bar.BarID == bar.BarID {
 			r.Made[i].Casts += n
@@ -169,6 +176,7 @@ func heatCastSlot(pack []gamestate.SlotItem, bar mastercraftplan.Bar, staff bool
 // three misses in a row (see the file comment). It opens the bank the full way first, banks the
 // pack but the runes and what Keep keeps, and leaves the bank closed.
 func SuperheatRun(d *fleetrunner.Deps, post tile.Tile, o HeatOptions) (r HeatRun) {
+	r.onMade = o.OnMade
 	start := time.Now()
 	st := d.Session.State()
 	magic := func() int { _, xp := statOf(d, MagicStat); return xp }
