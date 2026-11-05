@@ -267,6 +267,15 @@ func (c *CampaignLedger) Reconcile(set RuneSettings, muleNature int, muleKnown b
 	return ""
 }
 
+// combinedNature is the Nature runes the banks hold together (a user request: "starts when the combined bank total is under 100k"):
+// every bank on the peer board when the bot read them, else the mule's own published count.
+func combinedNature(s Snapshot) int {
+	if s.Sched.NatureKnown {
+		return s.Sched.Nature
+	}
+	return stockOf(s.Stock, "Nature rune")
+}
+
 // decideCampaign is the campaign's trigger, for decideNature once the gate's own conditions (level, world, backoff, talisman) hold:
 // it starts a campaign (or carries one on) and says why not when it does not. ownTalisman says the main account holds a Nature talisman.
 func decideCampaign(set Settings, s Snapshot, led *Ledger, ownTalisman bool) (Decision, string) {
@@ -282,7 +291,7 @@ func decideCampaign(set Settings, s Snapshot, led *Ledger, ownTalisman bool) (De
 	v := runecraftplan.CampaignStartView{
 		Known: in.Known, Level: in.Level, Members: in.Members,
 		MuleHeard: s.MuleHeard, MuleSameWorld: s.MuleSameWorld, MuleKnown: s.Stock != nil,
-		MuleNature: stockOf(s.Stock, "Nature rune"), MuleEssence: stockOf(s.Stock, runecraftplan.EssenceName),
+		MuleNature: combinedNature(s), MuleEssence: stockOf(s.Stock, runecraftplan.EssenceName),
 		MuleCoins: stockOf(s.Stock, "Coins"), MuleTalisman: stockOf(s.Stock, nature.Talisman), TalismanHeld: ownTalisman,
 		BuyOut: in.BuyOut, BuyWhy: in.BuyOutWhy,
 		Listed: len(r.Runners), AtWork: in.Carriers, Standby: in.Standby,

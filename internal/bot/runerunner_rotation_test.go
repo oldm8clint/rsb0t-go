@@ -230,6 +230,7 @@ func (f *runeFakeSwarm) safeInput(*Context) mastercraftplan.SafeInput {
 func TestRuneRunnerSwarmBetweenCircuits(t *testing.T) {
 	r := newRotRig(t, "rotbuyer5", 41, 2809, 3441, map[string]interface{}{
 		"swarmSettings": map[string]interface{}{"maxStage": 5.0}, "swarmResumeRunes": 1000.0, "swarmCheckMinutes": 5.0,
+		"swarmReadyPercent": 0.0, // this test is of the swarmResumeRunes rule alone; the share has its own test below
 	})
 	fake := &runeFakeSwarm{in: mastercraftplan.SafeInput{TileKnown: true, InCombat: true, HP: 30, MaxHP: 30}}
 	r.b.newSwarm = func() masterSwarm { return fake }
@@ -281,6 +282,34 @@ func TestRuneRunnerSwarmBetweenCircuits(t *testing.T) {
 	r.at(t, "hop41")
 	if r.b.afterRoundSwarm(r.ctx) {
 		t.Error("switched with the circuit worth 1200")
+	}
+}
+
+// The circuit is walked only once it would buy swarmReadyPercent of a full-shelf circuit: 14,000 of 30,000 hands over and logs how long
+// the restock takes; 18,000 stays on the circuit.
+func TestRuneRunnerSwarmWaitsForTheShelvesToRegrow(t *testing.T) {
+	r := newRotRig(t, "rotbuyer7", 41, 2809, 3441, map[string]interface{}{"swarmSettings": map[string]interface{}{"maxStage": 5.0}})
+	r.b.newSwarm = func() masterSwarm { return &runeFakeSwarm{in: mastercraftplan.SafeInput{TileKnown: true}} }
+	worth := 14000
+	r.b.circuitWorthSeam = func(*Context) int { return worth }
+	r.b.circuitWorthAtSeam = func(_ *Context, after time.Duration) int {
+		if after >= fullShelfHorizon {
+			return 30000
+		}
+		return min(30000, 10000+int(after.Minutes())*200) // regrowing 200 runes a minute from 10,000
+	}
+	r.at(t, "hop41")
+	if !r.b.afterRoundSwarm(r.ctx) || !r.b.st.SwarmDue {
+		t.Fatalf("14,000 of 30,000 should hand over\n%s", r.log())
+	}
+	if !strings.Contains(r.log(), "restock: circuit worth 14000 of 30000 at full shelves (target 18000): ready in about 40m0s") {
+		t.Errorf("no restock line\n%s", r.log())
+	}
+	r.b.st.SwarmDue = false
+	worth = 18000
+	r.at(t, "hop41")
+	if r.b.afterRoundSwarm(r.ctx) {
+		t.Errorf("18,000 is the target: stay on the circuit")
 	}
 }
 

@@ -31,7 +31,7 @@ func TestOpenHandoutResolvesTheItemTheBankReallyHolds(t *testing.T) {
 	noted := func(id int) bool { return id == notedAdamantAxe }
 	bank := []gamestate.SlotItem{{Item: gamestate.Item{ID: liveAdamantAxe, Count: 1}}}
 
-	id, ok := pickBankedID([]int{liveAdamantAxe, notedAdamantAxe}, noted, bank)
+	id, ok := pickBankedID([]int{liveAdamantAxe, notedAdamantAxe}, noted, bank, nil)
 	if !ok {
 		t.Fatal("the Adamant axe the live mule holds did not resolve to a drawable id — the widened decision would then be declined 'I cannot identify that item'")
 	}

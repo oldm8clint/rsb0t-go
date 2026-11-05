@@ -316,6 +316,11 @@ type muleBot struct {
 	// particular it never stops a cook round (owner 2026-09-19 -- a mule must not stand idle for
 	// a donor who is not there yet).
 	enroute map[string]time.Time
+	// lastEarlyExit, waitStarted and earlyWaited back Deps.LeaveWait: when the last early exit
+	// from the idle wait happened, when the current wait began, and how long the last early exit
+	// waited (for the "left the wait early" line).
+	lastEarlyExit, waitStarted time.Time
+	earlyWaited                time.Duration
 	// lastBusTick rate-limits busTick.
 	lastBusTick time.Time
 
@@ -385,6 +390,9 @@ type muleBot struct {
 	// kitTurnOwed is set when a kit was served while fishers waited, and cleared by the next
 	// RunCycle turn: see mule_kit.go.
 	kitTurnOwed bool
+	// load is the rolling record of kit waits, idle time and cook rounds the mule logs (loadstats.go), loadSaid when.
+	load     mulereceiverplan.LoadStats
+	loadSaid time.Time
 	// kitBatch is how many queued kits one bank visit may draw and trade out (setting kitBatch, default
 	// orderplan.KitBatchMax; 1 serves one kit a visit, as before): mule_kit.go, mulerunner.HandoutKits.
 	kitBatch int
@@ -724,7 +732,9 @@ func (b *muleBot) deps(ctx *Context) *mulerunner.Deps {
 		if b.busWatcher != nil && ctx.Bus != nil {
 			b.pollBus(ctx)
 		}
-		if b.incomingPending() > 0 {
+		// Only a donor that announced just now, or a trade request, sends it back: donors on a long walk kept it off the
+		// range all night (5 Nov 2026: 0 cook rounds in an hour at 30% idle).
+		if !b.fishersQuiet() {
 			return true
 		}
 		// A queued wall-bus ORDER counts too, and used not to — the bug this whole
@@ -793,6 +803,18 @@ func (b *muleBot) deps(ctx *Context) *mulerunner.Deps {
 	// Both used to happen only between trades, so while a queue existed -- when the mule is
 	// trading or banking nearly all the time -- announcements were answered in batches up to a
 	// whole trade late, and a donor deciding whether to draw read a queue depth just as old.
+	// A queued order that has become servable ends the idle wait (mulereceiverplan.LeaveWait): the
+	// wait cannot see a donor's cancel arrive, so a kit held behind a just-finished donor used to sit
+	// out the whole idleTimeout.
+	d.LeaveWait = func() bool {
+		g := b.orderGate()
+		if !mulereceiverplan.LeaveWait(g, b.watcher.QueuedRequests(), time.Since(b.lastEarlyExit)) {
+			return false
+		}
+		b.lastEarlyExit = time.Now()
+		b.earlyWaited = time.Since(b.waitStarted)
+		return true
+	}
 	d.Delay = func(dur time.Duration) bool {
 		b.busTick(ctx)
 		return ctx.Delay(dur)
@@ -1479,6 +1501,10 @@ func (b *muleBot) Loop(ctx *Context) error {
 	}
 
 	d := b.deps(ctx)
+	if line, ok := b.load.Summary(time.Now()); ok && time.Since(b.loadSaid) >= 10*time.Minute {
+		b.loadSaid = time.Now()
+		ctx.logf("%s", line)
+	}
 
 	// Account owner's own ask (2026-09-16): go into every trade with an empty pack, not
 	// just once at startup. Cheap when there is nothing to do — DepositAllInPack reads the
@@ -1547,7 +1573,16 @@ func (b *muleBot) Loop(ctx *Context) error {
 	// interrupts a round (IdlePending), so nobody is left waiting.
 	wait := b.cycleWait(b.watcher.QueuedRequests())
 	ctx.SetPhase(phaselog.Idle)
+	b.waitStarted = time.Now()
 	res := mulerunner.RunCycle(d, b.watcher, b.allowed, wait)
+	if res.Early {
+		// Not a fishing turn (nobody was served) and not a timeout: back to the top of Loop, where
+		// serveOrder sees the same gate LeaveWait just passed.
+		g := b.orderGate()
+		ctx.logf("left the idle wait early after %s: %d order(s) and %d kit(s) servable (fishers quiet=%v, oldest kit %s, wait was %s)",
+			b.earlyWaited.Round(100*time.Millisecond), g.SingleOrders, g.Kits, g.FishersQuiet, g.OldestKitAge.Round(time.Second), wait)
+		return nil
+	}
 	b.kitTurnOwed = false // the fishing queue has had its turn
 	// The ONLY place a restock donation is counted, and it counts this mule's own pack gain
 	// (CycleResult.Received, set only once completeTrade confirmed both screens). A no-op
@@ -1557,6 +1592,7 @@ func (b *muleBot) Loop(ctx *Context) error {
 	if !res.Handled {
 		b.status.Idle()
 		ctx.SetPhase(phaselog.Idle)
+		b.load.NoteIdle(time.Now(), time.Since(b.waitStarted))
 		if wait == b.idleTimeout {
 			ctx.logf("no trade request in the last %s", b.idleTimeout)
 		}
@@ -1614,14 +1650,15 @@ func (b *muleBot) Loop(ctx *Context) error {
 				// can still be waiting here, and starting a ~99s round in front of it
 				// spends the donor's whole donorrunner.Await on cooking.
 				ctx.logf("not cooking: %d queued hand-out order(s) still to serve", b.ordersPending())
-			case b.incomingPending() > 0:
-				ctx.logf("not cooking: %d donor(s) on the way to hand off", b.incomingPending())
+			case !b.fishersQuiet():
+				ctx.logf("not cooking: a donor has just announced")
 			case time.Since(b.lastTradeAt) < b.cookAfterIdle:
 				ctx.logf("not cooking: only %s since the last trade (need %s of a quiet stand)",
 					time.Since(b.lastTradeAt).Round(time.Second), b.cookAfterIdle)
 			default:
 				ctx.SetPhase(phaselog.Cooking)
 				if _, ok := mulerunner.CookRound(d); ok {
+					b.load.NoteCookRound(time.Now())
 					ctx.logf("cooking round complete")
 				}
 				ctx.SetPhase(phaselog.Idle)
@@ -1745,7 +1782,7 @@ func (b *muleBot) cycleWait(queued int) time.Duration {
 	if b.trip != nil && b.idleTimeout > campGlance {
 		return campGlance
 	}
-	if b.cookIdle && b.incomingPending() == 0 && queued == 0 && b.idleTimeout > cookGlance {
+	if b.cookIdle && b.fishersQuiet() && queued == 0 && b.idleTimeout > cookGlance {
 		return cookGlance
 	}
 	return b.idleTimeout

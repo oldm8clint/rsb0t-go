@@ -302,9 +302,16 @@ func BuildRotationRing(in RotationInput) []Station {
 	circuit := RotationCircuit(in.Shops, in.Worlds, in.Phase)
 	ring := []Station{{Kind: KindDeliver, World: in.M}}
 	ammo := func(site string) bool { return len(circuit) > 0 && enabled(in.Ammo, site) }
+	// The Ranging Guild's shop follows each Hickton stop (Catherby is the nearest stop to it): rangingguild.go.
+	hickton := func(world int) {
+		ring = append(ring, Station{Kind: KindAmmo, Site: SiteHickton, World: world})
+		if ammo(SiteDargaud) {
+			ring = append(ring, Station{Kind: KindAmmo, Site: SiteDargaud, World: world})
+		}
+	}
 	if ammo(SiteHickton) {
 		// Paid from the coins the last round left in the pack; the draw's deposit banks the purchase.
-		ring = append(ring, Station{Kind: KindAmmo, Site: SiteHickton, World: in.M})
+		hickton(in.M)
 	}
 	if len(circuit) > 0 {
 		if circuit[0].Site != SiteLundail {
@@ -369,7 +376,7 @@ func BuildRotationRing(in RotationInput) []Station {
 		// has Hickton at its start already (the round wraps straight into it).
 		last := circuit[len(circuit)-1].World
 		if last != in.M {
-			ring = append(ring, Station{Kind: KindAmmo, Site: SiteHickton, World: last})
+			hickton(last)
 		}
 		if in.AmmoEveryWorld {
 			// The other worlds, each behind its own hop (the mule's has Hickton at the round's start already).
@@ -379,7 +386,8 @@ func BuildRotationRing(in RotationInput) []Station {
 					continue
 				}
 				seen[w] = true
-				ring = append(ring, Station{Kind: KindHop, World: w}, Station{Kind: KindAmmo, Site: SiteHickton, World: w})
+				ring = append(ring, Station{Kind: KindHop, World: w})
+				hickton(w)
 			}
 		}
 	}

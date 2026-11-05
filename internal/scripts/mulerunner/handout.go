@@ -27,6 +27,7 @@ package mulerunner
 
 import (
 	"errors"
+	"strings"
 	"time"
 
 	"rsb0t-go/internal/actions"
@@ -177,24 +178,56 @@ func bankedID(cfg *cachecfg.Config, bankItems []gamestate.SlotItem, name string)
 	return pickBankedID(cfg.ObjIDs(name), func(id int) bool {
 		obj, ok := cfg.Obj(id)
 		return !ok || obj.Noted()
-	}, bankItems)
+	}, bankItems, func(id int) bool {
+		obj, ok := cfg.Obj(id)
+		return ok && Wearable(obj.IOps[:])
+	})
 }
 
-// pickBankedID is bankedID's pure core: among ids, skipping unusable ones, the first the bank
-// holds, else the first usable one.
-func pickBankedID(ids []int, unusable func(int) bool, bankItems []gamestate.SlotItem) (int32, bool) {
-	var first int32
-	found := false
+// Wearable reports whether an item's inventory options include wielding or wearing it.
+func Wearable(iops []string) bool {
+	for _, op := range iops {
+		switch strings.ToLower(strings.TrimSpace(op)) {
+		case "wield", "wear":
+			return true
+		}
+	}
+	return false
+}
+
+// pickBankedID is bankedID's pure core: among ids, skipping unusable ones, the best the bank holds,
+// else the first usable one. When a plain name matches several rows the wearable one wins: content
+// 289 names the unstrung bow and the strung one alike ("Shortbow" is obj 50 and obj 841), and the
+// first-by-id rule handed every asker the unstrung one it could not wield. An asker that wants one
+// form exactly uses a qualified name (cachecfg.QualifiedName), which resolves to a single obj.
+// wearable may be nil: nothing is preferred then.
+func pickBankedID(ids []int, unusable func(int) bool, bankItems []gamestate.SlotItem, wearable func(int) bool) (int32, bool) {
+	var first, firstHeld, firstWear int32
+	found, held, wear := false, false, false
 	for _, id := range ids {
 		if unusable(id) {
 			continue
 		}
+		isWear := wearable != nil && wearable(id)
 		if !found {
 			first, found = int32(id), true
 		}
 		if countByID(bankItems, int32(id)) > 0 {
-			return int32(id), true
+			if isWear {
+				return int32(id), true
+			}
+			if !held {
+				firstHeld, held = int32(id), true
+			}
+		} else if isWear && !wear {
+			firstWear, wear = int32(id), true
 		}
+	}
+	switch {
+	case held:
+		return firstHeld, true
+	case wear:
+		return firstWear, true
 	}
 	return first, found
 }

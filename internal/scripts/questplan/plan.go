@@ -159,6 +159,9 @@ type Snapshot struct {
 	// (LadderFacts SoftPrereqs) read complete on the quest tab. A quest that is absent, or whose
 	// tab is not coloured yet, is not known complete: an uncoloured tab is not a reading.
 	QuestsDone map[string]bool
+	// Pair is the account's partner for a two-account quest (Shield of Arrav, Heroes' Quest), as the runner's PairLink reports it: the zero
+	// value is "no partner configured", which a pair quest answers with a long wait and never a guess.
+	Pair PairState
 }
 
 // QuestDone reports whether the soft prerequisite quest id read complete (QuestsDone).

@@ -240,6 +240,9 @@ type Item struct {
 	Name  string `json:"name"`
 	Count int64  `json:"count"`
 	Value int64  `json:"value,omitempty"`
+	// Raw is, on an item the control panel serves, the count BEFORE deaths were deducted, set only when
+	// a deduction was made (Count is then the net). 0 means Count is the raw figure.
+	Raw int64 `json:"raw,omitempty"`
 }
 
 // Drop is one report: Events is how many kills/pickpockets/opens this report covers (0 for a

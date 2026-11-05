@@ -460,6 +460,9 @@ type AmmoSite struct {
 	// Built is false for a site this package does not put on the circuit; Gate says why.
 	Built bool
 	Gate  string
+	// MinRanged is the Ranged level the site's door needs (0 for none): the Ranging Guild's. A site above the account's level is
+	// left out of the round (RangingGuildSites), exactly as the Wizards' Guild is below Magic 66.
+	MinRanged int
 }
 
 // AmmoSiteFor is the registry of the ammo shops RuneRunner knows.
@@ -472,8 +475,11 @@ func AmmoSiteFor(key string) (AmmoSite, bool) {
 	case strings.ToLower(SiteGerrant):
 		return AmmoSite{Key: SiteGerrant, Shop: Gerrant, Stand: GerrantStand, Bank: DraynorBank, BankName: "Draynor", Anchor: SiteBetty, Built: true}, true
 	case strings.ToLower(SiteDargaud):
-		return AmmoSite{Key: SiteDargaud, Shop: Dargaud, Stand: DargaudStand, Bank: CatherbyBank, BankName: "Catherby",
-			Gate: "the Ranging Guild door needs Ranged 40 (no account on the roster has 20); it is the only shop that sells Arrow shafts"}, true
+		// Built since 5 Nov 2026 (owner: "get acct 40 ranged for the ranged guild shop asap ... rangeguild shop unlocked asap for more
+		// arrowtip purchases per hour"): placed after each Hickton stop once the account's Ranged reaches the door's 40
+		// (RangingGuildSites). Its route through the guild door is not live-proven.
+		return AmmoSite{Key: SiteDargaud, Shop: Dargaud, Stand: DargaudStand, Bank: CatherbyBank, BankName: "Catherby", MinRanged: RangingGuildRanged,
+			MinVisitCoins: DargaudMinVisitCoins, Built: true}, true
 	case strings.ToLower(SiteLathas):
 		return AmmoSite{Key: SiteLathas, Shop: Lathas, Stand: tile.Tile{X: 2514, Z: 3385}, Bank: ArdougneBank, BankName: "East Ardougne",
 			Gate: "the Combat Training Camp gate opens only after Biohazard"}, true

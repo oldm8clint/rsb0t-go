@@ -959,13 +959,45 @@ func ReGear(d *Deps, wanted []string, timeout time.Duration) (equipped []string,
 // A bank note shares its item's name and has no Wear option: live 12 Oct the Stage 5 trainer clicked "wear" on the
 // noted alch stock it carries (Adamant longsword, Adamant plateskirt ...) about 35 times an hour ("actions: no option
 // with that label"). Notes are skipped.
+//
+// A strung bow and its unstrung one share a display name in content 289 ("Shortbow" is obj 841 and obj 50), so the FIRST un-noted match
+// could be the unstrung bow, which has no Wield option: the bow stint's wield step failed with "no option with that label" while the
+// strung bow sat behind it. Of the matches the first that offers Wield or Wear is taken (pickWearableID), else the first as before.
 func packItemID(d *Deps, eq *actions.Equipment, name string) (int32, bool) {
+	var ids []int32
 	for _, it := range eq.Inventory() {
 		if obj, ok := d.Config.Obj(int(it.ID)); ok && !obj.Noted() && strings.EqualFold(obj.Name, name) {
-			return it.ID, true
+			ids = append(ids, it.ID)
 		}
 	}
-	return 0, false
+	return pickWearableID(ids, func(id int32) bool {
+		obj, ok := d.Config.Obj(int(id))
+		return ok && offersWear(obj.IOps[:])
+	})
+}
+
+// pickWearableID is the first id of ids (pack order) that wearable says offers Wield or Wear, else the first id; false for none.
+func pickWearableID(ids []int32, wearable func(int32) bool) (int32, bool) {
+	if len(ids) == 0 {
+		return 0, false
+	}
+	for _, id := range ids {
+		if wearable != nil && wearable(id) {
+			return id, true
+		}
+	}
+	return ids[0], true
+}
+
+// offersWear reports whether an item's inventory options include Wield or Wear.
+func offersWear(iops []string) bool {
+	for _, op := range iops {
+		switch strings.ToLower(strings.TrimSpace(op)) {
+		case "wield", "wear":
+			return true
+		}
+	}
+	return false
 }
 
 // ---- finishing for good ----

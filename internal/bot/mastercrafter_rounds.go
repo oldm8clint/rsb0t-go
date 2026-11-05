@@ -106,11 +106,19 @@ func (b *masterCrafterBot) runRound(ctx *Context, dec mastercraftplan.Decision) 
 	case mastercraftplan.ModeShop:
 		return b.shopRound(ctx, d, started, dec)
 	case mastercraftplan.ModeSuperheat:
-		return b.superheatRound(ctx, d, started)
+		return b.superheatRound(ctx, d, started, dec)
 	case mastercraftplan.ModeSmith: // mastercrafter_smith.go
 		return b.smithRound(ctx, d, started, dec)
+	case mastercraftplan.ModePlatebody: // mastercrafter_platebody.go
+		return b.plateRound(ctx, d, started, dec)
+	case mastercraftplan.ModeStaves: // mastercrafter_staves.go
+		return b.stavesRound(ctx, d, started, dec)
+	case mastercraftplan.ModeBones: // mastercrafter_bones.go
+		return b.bonesRound(ctx, d, started, dec)
 	case mastercraftplan.ModeCannonballs: // mastercrafter_cannonballs.go
 		return b.cannonballRound(ctx, d, started, dec)
+	case mastercraftplan.ModeCannonRun: // mastercrafter_cannonrun.go
+		return b.cannonRunRound(ctx, d, started, dec)
 	case mastercraftplan.ModeArrows:
 		return b.arrowRound(ctx, d, started)
 	case mastercraftplan.ModeHerbs:
@@ -586,11 +594,13 @@ func (b *masterCrafterBot) deliverRound(ctx *Context, d *fleetrunner.Deps) maste
 	}
 	products := append(mastercraftrunner.GemProducts(), mastercraftrunner.PearlProducts()...)
 	// The bars an anvil round has drawn into the bank are its stock, not a product to give back.
-	if !b.smithKeepsBars() && !b.cannonKeepsBars() {
+	if !b.smithKeepsBars() && !b.cannonKeepsBars() && !b.plateKeepsBars() {
 		products = append(products, mastercraftrunner.BarProducts()...)
 	}
 	products = append(products, mastercraftrunner.CannonProducts()...)
 	products = append(products, mastercraftrunner.SmithProducts()...)
+	products = append(products, mastercraftrunner.PlateProducts()...)
+	products = append(products, mastercraftrunner.StavesProducts()...)
 	products = append(products, mastercraftrunner.ArrowProducts()...)
 	products = append(products, mastercraftrunner.HerbProducts()...)
 	// The trawler's tips and their bases are master's own stock, not products (live 3 Nov 2026 13:22: a rest's hand-over

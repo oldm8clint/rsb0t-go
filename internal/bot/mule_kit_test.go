@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"rsb0t-go/internal/mulebus"
+	"rsb0t-go/internal/scripts/mulereceiverplan"
 	"rsb0t-go/internal/scripts/mulerunner"
 	"rsb0t-go/internal/scripts/orderplan"
 )
@@ -458,5 +459,23 @@ func TestKitGiveFromKeepsPositiveLines(t *testing.T) {
 	}
 	if len(kitGiveFrom(kitMsg("k2"))) != 0 {
 		t.Fatal("a kit that gives nothing back has no hand-over")
+	}
+}
+
+// The idle wait must end the moment a donor's cancel makes a held kit servable, and not before
+// (5 Nov 2026: the wait ran its whole 60 s with the kit due after a few seconds).
+func TestOrderGateEndsTheWaitWhenTheDonorsCancelLands(t *testing.T) {
+	b := kitMule()
+	b.kits = map[string]queuedKit{"acct64": {msg: kitMsg("k1"), at: time.Now(), until: time.Now().Add(5 * time.Minute)}}
+	b.incoming["fisher1"] = time.Now() // the donor that just handed over, cancel not yet heard
+	if mulereceiverplan.OrderServable(b.orderGate()) {
+		t.Fatal("a kit behind an announced donor must keep waiting")
+	}
+	delete(b.incoming, "fisher1") // its cancel arrives
+	if !mulereceiverplan.OrderServable(b.orderGate()) {
+		t.Fatal("once the queue is quiet the kit is servable and the wait must end")
+	}
+	if _, _, due := b.kitDue(); !due {
+		t.Fatal("the gate and kitDue must agree")
 	}
 }

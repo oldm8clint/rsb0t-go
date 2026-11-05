@@ -33,7 +33,7 @@ func foldRunePickups(lifetime map[string]map[string]*lootRec) (removed map[strin
 			}
 			var kill *lootRec
 			for _, cand := range sources {
-				if cand.Source.Kind != loot.KindNPC || cand.Source.Action != loot.ActionKill {
+				if cand.Source.Kind != loot.KindNPC || cand.Source.Action != loot.ActionKill || loot.DropsNothing(cand.Source) {
 					continue
 				}
 				if kill == nil || cand.Events > kill.Events {
@@ -56,4 +56,38 @@ func foldRunePickups(lifetime map[string]map[string]*lootRec) (removed map[strin
 		}
 	}
 	return removed, target
+}
+
+// unfileNoDropKills moves the items an older build credited to a kill of an npc that drops nothing (loot.DropsNothing: the Khazard
+// trooper) onto pickup cards of the items themselves, one per item, in the same account's records. foldRunePickups then folds the runes
+// and bones among them under a kill that can drop them, and leaves the rest on their own pickup cards. The kill keeps its events, XP and
+// Spent. Idempotent: a second pass finds no items on such a kill.
+func unfileNoDropKills(lifetime map[string]map[string]*lootRec) {
+	for _, sources := range lifetime {
+		for _, rec := range sources {
+			if !loot.DropsNothing(rec.Source) || len(rec.Items) == 0 {
+				continue
+			}
+			for _, it := range rec.Items {
+				if it.Count <= 0 {
+					continue
+				}
+				src := loot.Pickup(nil, it.ID, it.Name)
+				key := src.Key()
+				dst := sources[key]
+				if dst == nil {
+					dst = &lootRec{Source: src}
+					sources[key] = dst
+				}
+				dst.addItems([]loot.Item{it})
+				if rec.First > 0 && (dst.First == 0 || rec.First < dst.First) {
+					dst.First = rec.First
+				}
+				if rec.Last > dst.Last {
+					dst.Last = rec.Last
+				}
+			}
+			rec.Items = nil
+		}
+	}
 }

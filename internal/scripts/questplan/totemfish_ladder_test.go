@@ -33,7 +33,7 @@ func TestTotemAndTheFishingContestSitAfterTheOtherFillers(t *testing.T) {
 		if f.ID != x.id || f.Name != x.module.Record.Name || f.QP != x.module.Record.QuestPoints || !f.Filler || f.QP != 1 {
 			t.Errorf("%s row %+v does not match its module record %+v", x.id, f, x.module.Record)
 		}
-		// The skill gate is the record's, not the table's: a gate in the table needs a training rung (TestEveryHardGateHasANamedTrainingRung),
+		// The skill gate is the record's, not the table's: a gate in the table needs a training rung (TestEveryHardGateHasATrainingRung),
 		// and no rung trains Thieving or Fishing; the ladder holds an account short of it through the record's requirements.
 		if f.Finale || f.TrainSkill != "" || len(f.Gates) != 0 || len(f.Prereqs) != 0 || len(f.SoftPrereqs) != 0 || f.QPNeeded != 0 || f.MinCombat != 0 {
 			t.Errorf("%s row %+v: a filler has no gate, no prerequisite and no combat advice (its floors are the record's)", x.id, f)
@@ -137,6 +137,8 @@ func TestTotemAndTheFishingContestInThePlanner(t *testing.T) {
 		t.Fatalf("one point short with Fishing Contest and Gertrude's Cat done: plan %v", got)
 	}
 	short.Done[SheepShearerID] = true
+	// The Knight's Sword (id "squire") sorts between Sheep Shearer and Tribal Totem, so it is done too.
+	short.Done[KnightsSwordID] = true
 	q = PlanLadder([]string{"dragon"}, LadderFacts, short)
 	if got := planIDs(q); len(got) != 2 || got[0] != TribalTotemID || got[1] != "dragon" {
 		t.Fatalf("one point short with all the rest done: plan %v", got)

@@ -65,6 +65,20 @@ type Provisioner struct {
 	// source left for a line, or the passes ran out), not because a walk or a bank visit on the
 	// way failed. The engine publishes it as Snapshot.Blocked.
 	LastBlocked bool
+	// LastTrain is the stints the last Provision call ended asking for (questplan.PhaseTrain): the kit is complete but for a
+	// skill source the account is below the level of, which the trainer catalogue can train. The runner never works it: the
+	// engine reads it with TakeTrain after a failed step, ends the run (which releases a crowded quest's fleet-wide slot) and
+	// parks the quest on "needs:<skill>:<level>", so the stint runs outside the slot. A Provision call that ends any other
+	// way leaves it empty.
+	LastTrain []questplan.TrainNeed
+	// LastErrand is set when the round's one bundled mule ask was not answered here because a world errand carries it (the mule is
+	// on another world): the kit arrives when the errand is home, so the round is not a dead end. The engine reads it with
+	// TakeErrand after a failed step and parks the quest for ErrandParkFor instead of letting it wait on a kit that "could not be
+	// filled" (live 5-6 Nov 2026: Olaf's Raw shark, 93k on the mule, was asked for, carried by the errand, and the trial still
+	// parked on the blocked kit for the rest of the run).
+	LastErrand string
+	// Trainers is the catalogue a Train source is checked against; nil is questplan.SharedCatalogue.
+	Trainers *questplan.Catalogue
 	// bankFails counts the bank visits in a row that failed (the walk or the booth); at
 	// bankFailsBlocked the plan counts as blocked. Live 3 Oct 13:30: accounts in Kandarin tried
 	// Priest in Peril's essence bank at 3253,3420, which their walker calls unreachable, every 16 s
@@ -88,6 +102,28 @@ type Provisioner struct {
 	// 18 of 18 market-essence rounds "failed", 14 because the Seers stalls do not stand on the
 	// account's world and 4 because its supply mode shops at no player market).
 	SourceUnavailable func(method string) string
+}
+
+// TakeTrain returns the stints the last Provision call waits for and forgets them, so a train need that was read once is
+// never read again by a later, unrelated failure.
+func (p *Provisioner) TakeTrain() []questplan.TrainNeed {
+	n := p.LastTrain
+	p.LastTrain = nil
+	return n
+}
+
+// ErrandMarker is the text a MuleAsker's reason carries when a world errand takes the ask (scarabswarm_worldseam.go).
+const ErrandMarker = "a world errand carries the ask"
+
+// ErrandParkFor is how long a quest whose kit rides a world errand is parked: the errand hops to the mule's world, trades and hops
+// home (about five minutes on a clear fleet), and the kit is then in the pack or the bank the next pass reads.
+const ErrandParkFor = 8 * time.Minute
+
+// TakeErrand returns the reason the last Provision call left its ask to a world errand and forgets it.
+func (p *Provisioner) TakeErrand() string {
+	r := p.LastErrand
+	p.LastErrand = ""
+	return r
 }
 
 func (p *Provisioner) visitBank() func(d *Deps, bankTile tile.Tile, withdraw []questplan.ItemCount, keep func(id int) bool) bool {
@@ -158,6 +194,8 @@ func (p *Provisioner) Provision(d *Deps, name string, kit []questplan.KitLine, k
 	}
 	p.LastBlocked = false
 	p.LastTravelBlocked = false
+	p.LastTrain = nil
+	p.LastErrand = ""
 	if p.Disabled {
 		return false, "provisioning is disabled (a harness control arm)"
 	}
@@ -210,7 +248,7 @@ func (p *Provisioner) Provision(d *Deps, name string, kit []questplan.KitLine, k
 			Bank: p.Bank.Counts, BankKnown: p.Bank.Known && bankedThisRound,
 			MuleAsked: muleAsked, Levels: BaseLevels(d),
 			FreeSlots: FreeSlots(d), Depositable: depositable, Exhausted: exhausted, Unavailable: unavailable,
-			TravelFloat: p.TravelFloat, CoinsDrawn: coinsDrawn,
+			TravelFloat: p.TravelFloat, CoinsDrawn: coinsDrawn, Trainers: p.Trainers,
 		}
 		if st.TravelFloat == 0 {
 			st.TravelFloat = DefaultTravelFloat
@@ -231,6 +269,13 @@ func (p *Provisioner) Provision(d *Deps, name string, kit []questplan.KitLine, k
 			p.LastBlocked = true
 			p.LastTravelBlocked = deadNow
 			return false, strings.Join(plan.Blocked, "; ")
+		case questplan.PhaseTrain:
+			// Everything the account could fetch is fetched; what is left is a level. Not worked here (a stint inside the
+			// quest's slot would hold the slot for hours): the need is handed to the engine, and the call fails like a
+			// blocked one for any caller that does not read it.
+			p.LastBlocked = true
+			p.LastTrain = plan.Train
+			return false, questplan.TrainReason(plan.Train)
 		case questplan.PhaseBank:
 			if bankedThisRound && len(plan.Withdraw) == 0 {
 				// Read already; nothing to take. Should not happen, but never loop on it.
@@ -278,6 +323,9 @@ func (p *Provisioner) Provision(d *Deps, name string, kit []questplan.KitLine, k
 				purpose = "quest"
 			}
 			got, reason := p.Mule.Ask(purpose+":"+name, plan.MuleAsk)
+			if len(got) == 0 && strings.Contains(reason, ErrandMarker) {
+				p.LastErrand = reason
+			}
 			if len(got) == 0 {
 				d.logf("[provision %s] the mule gave nothing (%s); falling through to ground, skill and shop", name, reason)
 			} else {

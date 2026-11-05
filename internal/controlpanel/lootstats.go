@@ -57,6 +57,8 @@ const (
 	maxLootBuckets = 144
 	// maxLootRecent bounds the recent-drops ticker.
 	maxLootRecent = 80
+	// maxLootNotable is how many older records with a notable item the ring keeps past maxLootRecent.
+	maxLootNotable = 40
 )
 
 // lootRec is one account's accumulated record for one source.
@@ -158,6 +160,38 @@ type LootRecent struct {
 	Source  loot.Source `json:"source"`
 	Events  int64       `json:"events"`
 	Items   []loot.Item `json:"items"`
+	// Notable is the ids of the items worth the Notable drops ticker (loot.IsNotable at the market price
+	// when it was recorded). A record from before the field has none and falls back to the panel's list.
+	Notable []int `json:"notable,omitempty"`
+}
+
+// notableIDs is the ids among items that loot.IsNotable accepts at the market price.
+func notableIDs(prices *PriceBook, items []loot.Item) []int {
+	var out []int
+	for _, it := range items {
+		if loot.IsNotable(it.ID, lootUnit(prices, it), it.Count) {
+			out = append(out, it.ID)
+		}
+	}
+	return out
+}
+
+// trimRecent keeps the newest maxLootRecent records, and past them the newest records that carry a
+// notable item (up to maxLootNotable more), so a rare drop is not pushed off the ring in minutes by the
+// fleet's ordinary pickups.
+func trimRecent(recent []LootRecent) []LootRecent {
+	if len(recent) <= maxLootRecent {
+		return recent
+	}
+	out := recent[:maxLootRecent]
+	extra := 0
+	for _, r := range recent[maxLootRecent:] {
+		if len(r.Notable) > 0 && extra < maxLootNotable {
+			out = append(out, r)
+			extra++
+		}
+	}
+	return out
 }
 
 // lootBucket is the fleet's gains in one history bucket: per item id, and per source key.
@@ -200,7 +234,9 @@ type lootAggregator struct {
 	history  []lootBucket      // oldest first
 	cleared  []lootClear       // oldest first, at most maxLootClears (lootclear.go)
 	deaths   []deathloot.Death // oldest first, persisted (lootdeaths.go)
-	dirty    bool
+	// sessionStartMs is the process start, so the since-restart period deducts only the deaths since then.
+	sessionStartMs int64
+	dirty          bool
 	// prices values a drop at what it actually trades for, falling back to high alchemy and
 	// then to the cache's own unit cost. Nil switches the market lookup off and the fallbacks
 	// still apply, so nothing here needs a special case for it (see PriceBook.Value).
@@ -256,6 +292,8 @@ func (l *lootAggregator) restore(f *lootFile) {
 	// event's own item comes off every source that is not that event (lootevents.go says why).
 	events := foldRetiredEventKeys(l.lifetime)
 	stripForeignEventItems(l.lifetime)
+	// What an older build filed on a kill of an npc that drops nothing moves to pickup cards (lootpickupfold.go).
+	unfileNoDropKills(l.lifetime)
 	// A rune or a bone recorded as a pickup of its own moves under the kill that left it
 	// (lootpickupfold.go).
 	pickupKeys, pickupKills := foldRunePickups(l.lifetime)
@@ -281,9 +319,7 @@ func (l *lootAggregator) restore(f *lootFile) {
 		kept = append(kept, r)
 	}
 	l.recent = kept
-	if len(l.recent) > maxLootRecent {
-		l.recent = l.recent[:maxLootRecent]
-	}
+	l.recent = trimRecent(l.recent)
 	l.history = f.History
 	for i := range l.history {
 		folded.moveEvents(l.history[i].Events)
@@ -550,10 +586,8 @@ func (l *lootAggregator) record(all []fleet.AccountLoot, now time.Time) {
 				recFor(l.session, acct.Account, tot.Source).addSkills(dSkills)
 			}
 			if len(dItems) > 0 {
-				l.recent = append([]LootRecent{{At: ms, Account: acct.Account, Source: tot.Source, Events: dEvents, Items: dItems}}, l.recent...)
-				if len(l.recent) > maxLootRecent {
-					l.recent = l.recent[:maxLootRecent]
-				}
+				l.recent = append([]LootRecent{{At: ms, Account: acct.Account, Source: tot.Source, Events: dEvents, Items: dItems, Notable: notableIDs(l.prices, dItems)}}, l.recent...)
+				l.recent = trimRecent(l.recent)
 			}
 			b := l.bucketLocked(ms)
 			b.Events[key] += dEvents
@@ -623,6 +657,11 @@ type LootSourceView struct {
 	CostUnits int64       `json:"costUnits,omitempty"`
 	Cost      int64       `json:"cost,omitempty"`
 	CostKnown bool        `json:"costKnown,omitempty"`
+	// KillsPerHour, RuneValue and RuneGpPerHour are an npc kill source's kills an hour, the value of the runes its kills dropped and that
+	// value an hour, over the card's own window (lootrates.go). Zero for any other source, and the rates zero until the window is long enough.
+	KillsPerHour  float64 `json:"killsPerHour,omitempty"`
+	RuneValue     int64   `json:"runeValue,omitempty"`
+	RuneGpPerHour float64 `json:"runeGpPerHour,omitempty"`
 }
 
 // LootAccountView is one account's share of one period, for the per-account breakdown.
@@ -643,7 +682,9 @@ type LootAccountView struct {
 
 // LootPeriod is the whole fleet's loot for one period (lifetime or since restart).
 type LootPeriod struct {
-	Sources  []LootSourceView  `json:"sources"`
+	Sources []LootSourceView `json:"sources"`
+	// RuneNPCs ranks the npcs by the value of the runes their kills dropped an hour (lootrates.go).
+	RuneNPCs []RuneNPC         `json:"runeNpcs,omitempty"`
 	Accounts []LootAccountView `json:"accounts"`
 	Items    int64             `json:"items"`
 	Coins    int64             `json:"coins"`
@@ -695,7 +736,9 @@ type LootBody struct {
 // coinsID is the cache's Coins obj.
 const coinsID = 995
 
-func periodView(m map[string]map[string]*lootRec, prices *PriceBook, credited creditBook) LootPeriod {
+// periodView builds one period's view. lost is what deaths took for good, by account and item
+// (deathLossesBy), deducted from the account's own records (deductLost); nil deducts nothing.
+func periodView(m map[string]map[string]*lootRec, prices *PriceBook, credited creditBook, lost map[string]map[int]int64) LootPeriod {
 	p := LootPeriod{Events: map[string]int64{}}
 	type agg struct {
 		view   LootSourceView
@@ -715,7 +758,20 @@ func periodView(m map[string]map[string]*lootRec, prices *PriceBook, credited cr
 	sort.Strings(accounts)
 	for _, acct := range accounts {
 		av := LootAccountView{Account: acct}
-		for key, rec := range m[acct] {
+		keys := make([]string, 0, len(m[acct]))
+		for key := range m[acct] {
+			keys = append(keys, key)
+		}
+		sort.Strings(keys) // a deduction is drawn off the account's rows in a fixed order
+		var acctLost map[int]int64
+		if lost != nil {
+			acctLost = map[int]int64{}
+			for id, n := range lost[acct] {
+				acctLost[id] = n
+			}
+		}
+		for _, key := range keys {
+			rec := m[acct][key]
 			a := by[key]
 			if a == nil {
 				a = &agg{view: LootSourceView{Key: key, Source: rec.Source, First: rec.First}, items: map[int]*loot.Item{}, spent: map[int]*loot.Item{}, skills: map[int]*loot.Item{}}
@@ -755,15 +811,21 @@ func periodView(m map[string]map[string]*lootRec, prices *PriceBook, credited cr
 			if rec.Last > av.Last {
 				av.Last = rec.Last
 			}
-			for _, it := range rec.Items {
+			for _, it := range deductLost(rec.Items, acctLost) {
 				cur := a.items[it.ID]
 				if cur == nil {
 					cp := it
 					cp.Count = 0
+					cp.Raw = 0
 					cur = &cp
 					a.items[it.ID] = cur
 				}
 				cur.Count += it.Count
+				if it.Raw > 0 {
+					cur.Raw += it.Raw
+				} else {
+					cur.Raw += it.Count
+				}
 				// What it is WORTH, not what the cache says it costs. loot.Item.Value is the
 				// cache's unit cost -- the shop price the content ships with, which on this
 				// server has little to do with what a thing trades for. Users asked for
@@ -916,8 +978,11 @@ func (l *lootAggregator) body() (lifetime, session LootPeriod, recent []LootRece
 	// An input counts as recorded arriving if it arrived at any time (the lifetime), whichever period is
 	// drawn: the Yew longbows strung since the restart were mostly cut before it.
 	credited := creditedItems(l.lifetime)
-	lifetime = periodView(l.lifetime, l.prices, credited)
-	session = periodView(l.session, l.prices, credited)
+	nowMs := time.Now().UnixMilli()
+	lifetime = periodView(l.lifetime, l.prices, credited, deathLossesBy(l.deaths, nowMs, 0))
+	session = periodView(l.session, l.prices, credited, deathLossesBy(l.deaths, nowMs, l.sessionStartMs))
+	addKillRates(&lifetime, nowMs, 0)
+	addKillRates(&session, nowMs, l.sessionStartMs)
 	recent = append([]LootRecent{}, l.recent...)
 	history = make([]LootHistoryBucket, 0, len(l.history))
 	for _, b := range l.history {
@@ -936,10 +1001,13 @@ func (l *lootAggregator) body() (lifetime, session LootPeriod, recent []LootRece
 // lootSnapshot builds the /api/loot body.
 func (a *statsAggregator) lootSnapshot() LootBody {
 	_, available := a.src.(LootSource)
-	lifetime, session, recent, history := a.loot.body()
 	a.mu.Lock()
 	since, start := a.trackingSinceUnixMs, a.processStartUnixMs
 	a.mu.Unlock()
+	a.loot.mu.Lock()
+	a.loot.sessionStartMs = start
+	a.loot.mu.Unlock()
+	lifetime, session, recent, history := a.loot.body()
 	now := a.now().UnixMilli()
 	lifetime.Deaths, session.Deaths = a.loot.deathsViews(now, start)
 	return LootBody{

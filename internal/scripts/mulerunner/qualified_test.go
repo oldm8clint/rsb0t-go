@@ -21,7 +21,7 @@ func bowBank() []gamestate.SlotItem {
 	}
 }
 
-// bankedID resolves a plain name to the first obj its bank HOLDS in id order, which is how a kit ask
+// bankedID used to resolve a plain name to the first obj its bank HOLDS in id order (it now prefers the wearable one), which is how a kit ask
 // for "Yew longbow" was handed the unstrung bows when the walk-alch kit wanted the strung ones, and
 // how an ask for the unstrung Yew shortbows drew 55,634 strung ones. A QUALIFIED name is one obj.
 func TestBankedIDReadsAQualifiedNameAsThatObjAlone(t *testing.T) {
@@ -33,7 +33,7 @@ func TestBankedIDReadsAQualifiedNameAsThatObjAlone(t *testing.T) {
 		held int
 	}{
 		{"Yew shortbow", 857, 130712},       // the bug: the plain name is whatever the bank holds first
-		{"Yew longbow", 66, 7922},           // item 3 of the report: the alch kit wanted the strung one
+		{"Yew longbow", 855, 5519},          // a plain name wants the bow that can be wielded (5 Nov 2026); the unstrung one is asked by id66
 		{"Yew shortbow id857", 857, 130712}, // the strung bow, exactly
 		{"Yew longbow id855", 855, 5519},    // the strung longbow, though 66 comes first in id order
 		{"Yew longbow id66", 66, 7922},      // the unstrung longbow

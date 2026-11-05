@@ -96,7 +96,8 @@ func TestStoreProtectedOnTheLiveMule1sSmallRows(t *testing.T) {
 		"Lobster pot", "Harpoon", "Iron axe", // the mule's catalogue and the woodcutters' axes
 		"Steel battleaxe", "Mithril kiteshield", "Ruby ring", // the owner's alch stock (6 Oct 2026), which Magic 55+ accounts ask the mule for
 		"Iron platebody", "Rune arrowtips", "Adamant arrowtips", // the anvil round's products (8 Oct 2026): alch stock, and the arrow round's tips
-		"Steel platebody", // alch stock the owner bought (3 Nov 2026)
+		"Steel platebody",                     // alch stock the owner bought (3 Nov 2026)
+		"Rune platebody", "Adamant platebody", // the platebody round's products (5 Nov 2026): alch stock
 	}
 	for _, n := range stay {
 		if !StoreProtected(n) {
@@ -105,12 +106,12 @@ func TestStoreProtectedOnTheLiveMule1sSmallRows(t *testing.T) {
 	}
 	move := []string{
 		"Mime top", "Mime legs", "Dragon longsword", "Dragon dagger", "Rune scimitar", "Rune sword", "Steel claws",
-		"Dragon med helm", "Rune platelegs", "Rune chainbody", "Adamant platebody", "Black full helm",
+		"Dragon med helm", "Rune platelegs", "Rune chainbody", "Black full helm",
 		"Monk's robe", "Desert robe", "Cape", "Dragonfire shield", "Desert boots", "Beer glass", "Seasoned sardine",
 		"Amulet of glory", "Gold ring", "Snape grass", "Limpwurt root", "Adamant pickaxe", "Mithril pickaxe",
 		"Steel pickaxe", "Rune pickaxe", "Bucket of milk", "Bucket of water", "Jug of water", "White apron", "Eye patch",
 		"Doogle leaves", "Rotten food", "Mithril dagger", "Steel plateskirt", "Bronze platebody",
-		"Bronze kiteshield", "Rune platebody", "Desert shirt",
+		"Bronze kiteshield", "Desert shirt",
 	}
 	for _, n := range move {
 		if StoreProtected(n) {

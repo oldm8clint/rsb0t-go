@@ -52,6 +52,17 @@ type Engine struct {
 	// until its module says the account is past the shared step (Module.ExclusiveDone), not for
 	// the whole run, and not at all on later runs of an account that has passed it.
 	NarrowSlots bool
+	// QuestFor, when set, builds the registered quest with the given id (bot.QuestFactories). It is how a ladder
+	// reads a prerequisite it does not list that has no quest tab (the Barcrawl miniquest): through the quest's own
+	// Done (priorDone). Without it such a prerequisite is read from the side store's SeenComplete alone.
+	QuestFor func(id string) (Quest, bool)
+	// Unhold, when set, lifts a questplan.HeldRungs hold for the rung it answers true for (with the reason, logged once): the opt-in
+	// chain tier (stage5ThroneChain) lets Dragon Slayer in for an account whose melee levels say it can go.
+	Unhold func(id string) (bool, string)
+	// outside caches what QuestFor answered, by quest id (a nil entry is "not registered"); outsideSaid holds the
+	// out-of-list prerequisites already logged as read complete.
+	outside     map[string]*Quest
+	outsideSaid map[string]bool
 	// lastStuckPocket is when a stuck ladder last took the account out of a pocket it stood in (leaveStuckPocket).
 	lastStuckPocket time.Time
 	// Account and Build identify who and what the engine is, for the completions it records
@@ -170,6 +181,9 @@ func (e *Engine) Snapshot(noProgress int) questplan.Snapshot {
 		snap.BankCoins = pv.Bank.Counts[questplan.CoinsID]
 	}
 	snap.HP, snap.MaxHP = Hitpoints(d)
+	if d.Pair != nil {
+		snap.Pair = d.Pair.State()
+	}
 	snap.Levels = BaseLevels(d)
 	snap.QuestPoints = QuestPoints(d)
 	if e.Store != nil {
@@ -241,6 +255,7 @@ func (e *Engine) Run(q Quest, budget time.Duration) Result {
 	e.blocked = map[string]bool{}
 	e.ran = map[string]bool{}
 	e.parkReq = nil
+	e.prov().TakeTrain() // a train need left by an earlier run is not this quest's
 	d.stalls.reset()
 	e.stageFresh = false
 	e.runStart = time.Now()
@@ -260,6 +275,8 @@ func (e *Engine) Run(q Quest, budget time.Duration) Result {
 	lastStep := ""
 	lastCustom := "" // the custom step the last tick ran, for Module.StepDeathCaps
 	waitKey, waitCount := "", 0
+	waitAny := 0 // consecutive wait steps of ANY reason: two reasons that alternate never reach WaitPark on one key
+	var danger dangerWatch
 	travelBlocks := 0 // consecutive provisioning rounds blocked by an unreachable source
 	sus := q.Module.Sustain
 	// Where a lost fight walks to, and whether a fight may touch auto-retaliate. A retreat left
@@ -384,6 +401,31 @@ func (e *Engine) Run(q Quest, budget time.Duration) Result {
 		return park(fmt.Sprintf("lost a fight: %s", why), tick, desc), true
 	}
 
+	// The fail-safe every quest inherits: hitpoints falling while the quest makes no progress (a wait
+	// step, or a step that failed) walk the account off, and then park the quest, rather than stand in
+	// the danger (live 6 Nov 2026: a Waterfall run died twice at East Ardougne market with no food).
+	dangerCheck := func(stalled bool, hp, maxHP, tick int, desc string) (Result, bool) {
+		switch danger.Note(hp, maxHP, stalled) {
+		case dangerWalkAway:
+			here := currentTile(d)
+			dest, name := d.retreatDest(here)
+			d.logf("[%s] hitpoints falling (%d of %d) while %q makes no progress: walking away to %s", id, hp, maxHP, desc, name)
+			if !Travel(d, dest, 3) {
+				d.logf("[%s] could not reach %s from %d,%d,%d", id, name, here.X, here.Z, here.Level)
+			}
+		case dangerPark:
+			reason := fmt.Sprintf("hitpoints keep falling (%d of %d) while %q makes no progress: not standing in it", hp, maxHP, desc)
+			d.logf("[%s] parking for %s: %s", id, DangerParkFor, reason)
+			if e.Store != nil {
+				e.Store.NoteParkFor(id, reason, time.Now(), DangerParkFor)
+				e.Store.Record(id).LastStep = desc
+				e.save()
+			}
+			return Result{Outcome: OutcomeParked, Reason: reason, Ticks: tick, LastStep: desc}, true
+		}
+		return Result{}, false
+	}
+
 	for tick := 1; time.Now().Before(deadline) && !e.yielded; tick++ {
 		if !WaitForGuardian(d) {
 			return Result{Outcome: OutcomeStopped, Ticks: tick, LastStep: lastStep}
@@ -469,8 +511,15 @@ func (e *Engine) Run(q Quest, budget time.Duration) Result {
 			} else {
 				waitKey, waitCount = desc, 1
 			}
+			waitAny++
 			if waitCount >= WaitPark {
 				return park(fmt.Sprintf("waited %d ticks on %q without the world ever saying more", waitCount, desc), tick, desc)
+			}
+			if waitAny >= WaitParkAny {
+				return park(fmt.Sprintf("waited %d ticks in a row on changing reasons (last %q) without the world ever saying more", waitAny, desc), tick, desc)
+			}
+			if res, stop := dangerCheck(true, snap.HP, snap.MaxHP, tick, desc); stop {
+				return res
 			}
 			ClearLeftoverModal(d)
 			e.stageFresh = false
@@ -479,11 +528,28 @@ func (e *Engine) Run(q Quest, budget time.Duration) Result {
 			}
 			continue
 		}
-		waitKey, waitCount = "", 0
+		waitKey, waitCount, waitAny = "", 0, 0
 
 		mark := time.Now()
 		ok := e.execute(step)
 		e.stageFresh = false
+		hpNow, maxNow := Hitpoints(d)
+		if res, stop := dangerCheck(!ok, hpNow, maxNow, tick, desc); stop {
+			return res
+		}
+		// A provisioning round that ended waiting for a LEVEL (questplan.PhaseTrain) ends the quest's run: the stint is not
+		// worked inside the quest's slot, which a crowded quest would hold for hours (the completeness critic's item 19). The
+		// quest parks on "needs:<skill>:<level>", RunLadder releases the slot when Run returns, and the ladder ends the park
+		// the moment the level is there. The need is taken from the provisioner either way, so a stale one never parks a
+		// later, unrelated failure.
+		if train := e.prov().TakeTrain(); !ok && len(train) > 0 && e.parkReq == nil {
+			e.RequestPark(questplan.TrainReason(train), questplan.TrainParkFor)
+		}
+		// A kit whose mule ask a world errand carries is not a dead end: the quest steps aside for the errand, and the next run
+		// finds the items in the pack or the bank instead of waiting on the blocked kit.
+		if why := e.prov().TakeErrand(); !ok && why != "" && e.parkReq == nil {
+			e.RequestPark("waiting for the mule's kit, carried by a world errand: "+why, ErrandParkFor)
+		}
 		if key := failKey(step); key != "" {
 			if ok {
 				delete(e.failed, key)
@@ -765,12 +831,65 @@ func (e *Engine) completedQuests(qs []Quest) map[string]bool {
 	// A prerequisite outside the list is read from its own tab: a ladder of The Holy Grail
 	// alone (the questproof EMPTY lab run grail-empty-1, Merlin's Crystal complete on the
 	// server) stayed blocked on "prerequisite quest not complete: merlin" for its whole budget.
+	// One with no tab (the Barcrawl) is read through its own Done or the side store (priorDone).
 	for _, id := range prereqsOutside(qs, out) {
-		if name := questplan.QuestTabName(id); name != "" && ReadStatus(e.D, name) == questplan.StatusComplete {
+		if e.priorDone(id) {
 			out[id] = true
 		}
 	}
 	return out
+}
+
+// priorDone reads a quest the ladder at hand does not list: a prerequisite of one it does, or a quest a park waits for.
+// A quest with a tab is read from the tab, the server's own verdict (the side store's SeenComplete is only a hint about
+// it and never a gate). A quest with none, the Barcrawl miniquest whose progress is not transmitted, cannot be read from
+// the server at all, so it is read as a ladder that lists it reads it: through its own Done when QuestFor knows it,
+// else from the side store's record of the verdict its step took. Live 15-19 Oct 2026 the unproven tail, which lists
+// Scorpion Catcher and Horror from the Deep but not the proven Barcrawl, held them at "prerequisite quest not
+// complete: barcrawl" on 24 to 51 accounts a day (1,911 and 1,655 events in 15 days) though the head had finished the crawl.
+// The read creates no record in the store.
+func (e *Engine) priorDone(id string) bool {
+	if name := questplan.QuestTabName(id); name != "" && HasQuestTab(name) {
+		return ReadStatus(e.D, name) == questplan.StatusComplete
+	}
+	done, how := false, ""
+	if q, ok := e.outsideQuest(id); ok && q.Done != nil {
+		done, how = q.Done(e), "its own Done"
+	} else if e.Store != nil {
+		r := e.Store.Quests[id]
+		done, how = r != nil && r.SeenComplete, "the side store's record"
+	}
+	if done && !e.outsideSaid[id] {
+		if e.outsideSaid == nil {
+			e.outsideSaid = map[string]bool{}
+		}
+		e.outsideSaid[id] = true
+		e.D.logf("[ladder] %s is not in this ladder and has no quest tab: read complete from %s", id, how)
+	}
+	return done
+}
+
+// outsideQuest is the registered quest with the given id (QuestFor), built once per engine.
+func (e *Engine) outsideQuest(id string) (Quest, bool) {
+	if e.QuestFor == nil {
+		return Quest{}, false
+	}
+	if q, seen := e.outside[id]; seen {
+		if q == nil {
+			return Quest{}, false
+		}
+		return *q, true
+	}
+	if e.outside == nil {
+		e.outside = map[string]*Quest{}
+	}
+	q, ok := e.QuestFor(id)
+	if !ok {
+		e.outside[id] = nil
+		return Quest{}, false
+	}
+	e.outside[id] = &q
+	return q, true
 }
 
 // prereqsOutside lists the prerequisite quest ids of qs that are neither in qs nor already in
@@ -860,7 +979,13 @@ func (e *Engine) RunLadder(qs []Quest, perQuest, budget time.Duration) LadderRes
 						d.logf("[ladder] %s: clearing a park an older build wrote (%s)", q.ID(), why)
 						e.Store.ClearPark(q.ID(), time.Now())
 						e.save()
-					} else if dep := questplan.ParkAwaitedQuest(q.ID(), why); dep != "" && (done[dep] || ReadStatus(d, questplan.QuestTabName(dep)) == questplan.StatusComplete) {
+					} else if skill, level, ok := questplan.ParseNeedsPark(why); ok && player.SkillLevels[skill] >= level {
+						// A park that waited for a stint (the provisioner's train need) ends when the level is there, not
+						// when its two hours do.
+						d.logf("[ladder] %s: %s %d is reached, so the park waiting on it ends (%s)", q.ID(), skill, level, why)
+						e.Store.ClearPark(q.ID(), time.Now())
+						e.save()
+					} else if dep := questplan.ParkAwaitedQuest(q.ID(), why); dep != "" && (done[dep] || e.priorDone(dep)) {
 						// A park that was waiting for another quest (Priest in Peril's essence, for Rune
 						// Mysteries) ends when that quest reads complete, not when its backoff does.
 						d.logf("[ladder] %s: %s is complete, so the park waiting on it ends (%s)", q.ID(), dep, why)
@@ -884,9 +1009,20 @@ func (e *Engine) RunLadder(qs []Quest, perQuest, budget time.Duration) LadderRes
 			// the slot is taken: an account short of the 32 quest points reads as it always did, and this line
 			// appears only for an account the quest would otherwise have started on.
 			if why := questplan.RungHeld(q.ID()); why != "" {
-				res.Blocked[q.ID()] = []string{"held back: " + why}
-				e.noteRungHeld(q.ID(), why, heldSaid)
-				continue
+				lifted := false
+				if e.Unhold != nil {
+					if ok, reason := e.Unhold(q.ID()); ok {
+						lifted = true
+						e.noteRungUnheld(q.ID(), reason, heldSaid)
+					} else if reason != "" {
+						why += "; " + reason
+					}
+				}
+				if !lifted {
+					res.Blocked[q.ID()] = []string{"held back: " + why}
+					e.noteRungHeld(q.ID(), why, heldSaid)
+					continue
+				}
 			}
 			if e.slotNeeded(q.ID()) && !tryHoldQuest(q.ID(), d, time.Now()) {
 				res.Blocked[q.ID()] = []string{busyReason}
@@ -1004,6 +1140,16 @@ func (e *Engine) noteLadderHold(id string, holds []questplan.LadderHold, inLadde
 }
 
 // noteRungHeld logs, once a call, that quest id is not run because questplan.HeldRungs holds it, and why.
+// noteRungUnheld logs, once a call, that an opted-in account is let past a rung's hold and why.
+func (e *Engine) noteRungUnheld(id, why string, said map[string]bool) {
+	key := id + "|rung unheld"
+	if said[key] {
+		return
+	}
+	said[key] = true
+	e.D.logf("[ladder] %s: its hold is lifted for this account (%s)", id, why)
+}
+
 func (e *Engine) noteRungHeld(id, why string, said map[string]bool) {
 	key := id + "|rung held"
 	if said[key] {

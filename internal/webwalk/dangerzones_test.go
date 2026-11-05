@@ -160,7 +160,7 @@ func TestWolfDensAreAutomaticAtEveryLevelAndLeaveCatherbyOpen(t *testing.T) {
 	}
 }
 
-// A walk that ends at the Wilderness chaos altar (3239,3607) keeps the Wilderness north of 3623 as
+// A walk that ends at the Wilderness chaos altar (3239,3607) keeps the Wilderness north of 3647 as
 // a no-go, so the Ardougne lever's landing at 3154,3924 cannot be part of its route; a walk with no
 // endpoint inside keeps the whole Wilderness, and one from deep inside may still leave it.
 func TestWildernessKeepsLandDeeperThanTheEndpoints(t *testing.T) {
@@ -174,8 +174,8 @@ func TestWildernessKeepsLandDeeperThanTheEndpoints(t *testing.T) {
 	if !InZones(lever, zones) {
 		t.Error("the deep Wilderness lever landing is not avoided on a walk to the altar")
 	}
-	if !InZones(Point{X: 3239, Z: 3624}, zones) || InZones(Point{X: 3239, Z: 3623}, zones) {
-		t.Error("the cut is not 16 rows north of the altar")
+	if !InZones(Point{X: 3239, Z: 3648}, zones) || InZones(Point{X: 3239, Z: 3647}, zones) {
+		t.Error("the cut is not 40 rows north of the altar")
 	}
 	if !InZones(Point{X: 3100, Z: 9950}, zones) {
 		t.Error("the Wilderness dungeon, holding no endpoint, is not avoided")

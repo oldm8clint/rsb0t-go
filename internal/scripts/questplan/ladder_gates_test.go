@@ -161,19 +161,28 @@ func TestLadderHoldsLeavesItemAndAdvisedGatesAndRecordedLevels(t *testing.T) {
 	}
 }
 
-// Every hard gate in the table has a named training rung, so that a ladder built from the table
+// Every hard gate in the table has a training rung, so that a ladder built from the table
 // (the bot's "owner" expansion) can train it; a gate without one would be held back for ever.
-// And every named rung trains the skill it is named for.
-func TestEveryHardGateHasANamedTrainingRung(t *testing.T) {
+// The rung is the named rung of exactly the gate's level (and every named rung trains the skill it
+// is named for) or, since lane N2, the generic stop to that level, which the trainer catalogue
+// builds wherever a row reaches the level (rungids.go). A level no row reaches is a named gap
+// (TestEveryHardGateIsCoveredByARowOrANamedGap in internal/bot), not a gate this test accepts.
+func TestEveryHardGateHasATrainingRung(t *testing.T) {
+	cat := DefaultCatalogue()
 	for id, f := range LadderFacts {
 		for _, g := range f.Gates {
 			if !g.Hard() {
 				continue
 			}
 			rung := GateRungID(g)
-			rf, ok := LadderFacts[rung]
-			if !ok || rf.TrainSkill != strings.ToLower(g.Skill) || rf.TrainLevel != g.Level {
-				t.Errorf("%s needs %s %d (%s) and has no named training rung (GateRungID says %q)", id, g.Skill, g.Level, g.Label(), rung)
+			if rf, named := LadderFacts[rung]; named {
+				if rf.TrainSkill != strings.ToLower(g.Skill) || rf.TrainLevel != g.Level {
+					t.Errorf("%s needs %s %d (%s) and its named rung %q trains %s %d", id, g.Skill, g.Level, g.Label(), rung, rf.TrainSkill, rf.TrainLevel)
+				}
+				continue
+			}
+			if _, ok, why := cat.GateRung(g); !ok {
+				t.Errorf("%s needs %s %d (%s) and has no training rung (GateRungID says %q): %s", id, g.Skill, g.Level, g.Label(), rung, why)
 			}
 		}
 	}

@@ -738,7 +738,9 @@ func shopRoundSettings() map[string]interface{} {
 // Aemad's stop is in the round before every Lundail pair, it buys the Vials the pack has slots for, the Bronze arrows
 // (one stack) and the Ropes, at the shelf's prices, and walks to the stand the Antipoison maker proved.
 func TestAmmoStationBuysAemadsShelf(t *testing.T) {
-	r := ammoRig(t, "aemadrig1", 140, shopRoundSettings())
+	set := shopRoundSettings()
+	set["vialTrips"] = 0.0 // the shuttle has its own test (runerunner_vial_test.go)
+	r := ammoRig(t, "aemadrig1", 140, set)
 	ring := runerunnerplan.PlanString(r.b.st.Ring, 0)
 	if !strings.Contains(ring, "hop142 Aemad@142 Lundail@142 hop140 Aemad@140 Lundail@140 hop141 Aemad@141 Lundail@141") {
 		t.Fatalf("ring %s", ring)

@@ -61,6 +61,12 @@ func (b *runeRunnerBot) trawlerBlockWorld(ctx *Context) (int, bool) {
 	return mulebus.TrawlerBlock(mulebus.ReadTrawler(ctx.Bus, time.Now(), mulebus.TrawlerBlockTTL), trawlerCrewAnchor)
 }
 
+// noteRangedNow reads the Ranged level and returns it.
+func (b *runeRunnerBot) noteRangedNow(ctx *Context) int {
+	b.noteRanged(ctx)
+	return b.ranged
+}
+
 // ammoWanted is the site's listed parts left after the mule-stock gate (ammoStopAbove), and the parts it left
 // out with their reasons. pack is the runner's pack, whose ammo counts toward the gate (it is on its way to the
 // mule).
@@ -135,12 +141,15 @@ func (b *runeRunnerBot) ammoStation(ctx *Context, d *fleetrunner.Deps, s runerun
 	case !b.set.AmmoOn():
 		b.finish(ctx, skipped("ammo is off (ammoBuy %v, rotation %v)", b.set.AmmoBuy, b.set.Rotation))
 		return
-	case !containsFold(b.set.AmmoSiteList, site.Key):
+	case !containsFold(b.set.AmmoSiteList, site.Key) && !(site.MinRanged > 0 && b.set.RangingGuildShop):
 		// A ring saved before the setting changed (the operator took the shop out of ammoShops mid-round).
 		b.finish(ctx, skipped("%s is no longer in ammoShops", site.Key))
 		return
 	case ctx.World() != s.World:
 		b.finish(ctx, skipped("on world %d; the station is for world %d", ctx.World(), s.World))
+		return
+	case site.MinRanged > 0 && b.noteRangedNow(ctx) < site.MinRanged:
+		b.finish(ctx, skipped("%s", runerunnerplan.DargaudWhy(b.ranged)))
 		return
 	case b.noCoins:
 		b.finish(ctx, skipped("no coins: the draw found the bank empty"))
@@ -200,6 +209,16 @@ func (b *runeRunnerBot) ammoStation(ctx *Context, d *fleetrunner.Deps, s runerun
 			coins, b.set.FareCoins, hold, aheadNeed, bankSpare))
 		return
 	}
+	// A Vial of water takes a slot a unit and the pack reaches Aemad full of rune stacks: bank it first, or the shelf is left whole
+	// (5 Nov 2026: none of 498 bought in 11 visits). Coins stay in the pack.
+	if site.ShuttleSite() {
+		expectedVials := est[runerunnerplan.AmmoVial]
+		if first, why := runerunnerplan.VialShuttleFirst(b.set.VialTrips, containsFold(want, runerunnerplan.AmmoVial), expectedVials, freeSlots-b.set.AmmoSlotReserve); first {
+			b.logf(ctx, "vial shuttle: banking the pack at %s %d,%d before the shelf: %s", site.BankName, site.Bank.X, site.Bank.Z, why)
+			b.bankPack(ctx, d, site.Bank)
+			coins, freeSlots, pack = b.ammoPackState(d)
+		}
+	}
 	// Room: a new stack needs a free slot beyond the reserve for the runes still to be bought.
 	free := freeSlots - b.set.AmmoSlotReserve
 	stacked := map[string]bool{}
@@ -243,12 +262,78 @@ func (b *runeRunnerBot) ammoStation(ctx *Context, d *fleetrunner.Deps, s runerun
 	}
 	b.st.ClearStrikes(key)
 	res := b.ammoResult(ctx, site, s.World, key, want, v.ShopVisit, plan, visitSpendable, limit)
+	if site.ShuttleSite() && containsFold(want, runerunnerplan.AmmoVial) && b.set.VialTrips > 0 {
+		res = b.vialShuttle(ctx, d, s, site, res, v.ShopVisit, limit, hold)
+		if res.Bought[runerunnerplan.AmmoVial] > 0 {
+			res.Outcome = runerunnerplan.OutcomeBought
+		}
+	}
 	// A pack of single Ropes would ride into the next stop and crowd out its purchase: bank it first (AmmoSite.BankAfter).
 	if runerunnerplan.BankAfterWanted(site, res.Bought) {
 		b.logf(ctx, "ammo-bank station=%s bought=%s: banking the pack at %s %d,%d", key, runerunnerplan.AmmoBoughtLine(res.Bought), site.BankName, site.Bank.X, site.Bank.Z)
 		b.bankPack(ctx, d, site.Bank)
 	}
 	b.finish(ctx, res)
+}
+
+// vialShuttle is the rest of Aemad's Vials of water after the first visit (runerunnerplan/vialshuttle.go): bank the pack at the
+// site's bank, walk back, buy the next load, until the shelf is depleted or vialTrips trips are made. The last load is banked too.
+// res is the first visit's result, returned with every trip's Vials and coins added.
+func (b *runeRunnerBot) vialShuttle(ctx *Context, d *fleetrunner.Deps, s runerunnerplan.Station, site runerunnerplan.AmmoSite, res runerunnerplan.StationResult, first fleetrunner.ShopVisit, limit, hold int) runerunnerplan.StationResult {
+	vial := runerunnerplan.AmmoVial
+	if res.Bought == nil {
+		res.Bought = map[string]int{}
+	}
+	left := first.Seen[vial] - first.Bought[vial]
+	trips := 1
+	for {
+		ok, why := runerunnerplan.NextVialTrip(left, trips, b.set.VialTrips)
+		if !ok {
+			b.logf(ctx, "vial shuttle: station=%s done after %d trip(s), %d Vials in all: %s", s.Key(), trips, res.Bought[vial], why)
+			break
+		}
+		remaining := 0
+		if limit > 0 {
+			if remaining = limit - res.Spent; remaining <= 0 {
+				b.logf(ctx, "vial shuttle: station=%s done after %d trip(s): the ammoCoins budget is spent", s.Key(), trips)
+				break
+			}
+		}
+		b.logf(ctx, "vial shuttle: station=%s %s: banking at %s %d,%d", s.Key(), why, site.BankName, site.Bank.X, site.Bank.Z)
+		b.bankPack(ctx, d, site.Bank)
+		coins, freeSlots, _ := b.ammoPackState(d)
+		free := freeSlots - b.set.AmmoSlotReserve
+		if free < runerunnerplan.MinVialTrip {
+			b.logf(ctx, "vial shuttle: station=%s stopped: %d free slots after banking", s.Key(), free)
+			return res
+		}
+		planFor := func(seen map[string]int, packCoins int) fleetplan.PurchasePlan {
+			return runerunnerplan.PlanAmmoVisit(runerunnerplan.AmmoVisitInput{
+				Shop: site.Shop, Items: []string{vial}, Seen: seen, Caps: b.set.AmmoCapTable,
+				Spendable: packCoins - b.set.FareCoins - hold, Limit: remaining, FreeSlots: free, Stacked: map[string]bool{},
+			}).PurchasePlan
+		}
+		_ = coins
+		v := b.buyAmmo(d, site, planFor)
+		if v.Walked {
+			fleetrunner.ObserveVisit(fleetrunner.ShopsFor(s.World), site.Shop, v.ShopVisit, time.Now(), ctx.Username)
+		}
+		trips++
+		got := v.Bought[vial]
+		if !v.Walked || v.OpenFailed || got <= 0 {
+			b.logf(ctx, "vial shuttle: station=%s stopped on trip %d: bought %d%s", s.Key(), trips, got, ifReason(v.Reason))
+			return res
+		}
+		res.Bought[vial] += got
+		res.Spent += v.Spent
+		left = v.Seen[vial] - got
+		b.logf(ctx, "vial shuttle: station=%s trip %d bought %d Vials of water, %d left on the shelf, %d coins", s.Key(), trips, got, left, v.Spent)
+	}
+	if res.Bought[vial] >= runerunnerplan.AmmoBankAfterMin {
+		b.logf(ctx, "vial shuttle: station=%s banking the last load at %s", s.Key(), site.BankName)
+		b.bankPack(ctx, d, site.Bank)
+	}
+	return res
 }
 
 // nedStation is Ned's stop (runerunnerplan.NedShop): the part of ropeFloor that the mule's published bank and this runner's own Rope

@@ -61,7 +61,7 @@ const (
 	// ChestKeyThreshold is the mule's own gate (orderplan.KeysFloor, the owner's "more than 100"):
 	// it hands out only the keys above it.
 	ChestKeyThreshold = lootchestfisherplan.MuleKeyThreshold
-	// ChestStartKeys is the keys the mule's bank must hold before a chest round starts (owner, 6 Oct
+	// ChestStartKeys is the DEFAULT of craftChestStartKeys (1,000 since 5 Nov 2026; settings.Sched) - the keys the mule's bank must hold before a chest round starts (owner, 6 Oct
 	// 2026: "crystalchest should require 400 keys in the mule's bank to trigger"; more than 100
 	// before).
 	ChestStartKeys = 400
@@ -205,7 +205,7 @@ func ChestReady(muleKeys int) bool { return muleKeys >= ChestStartKeys }
 // just heading to the mule upon startup"), and a new round would walk it to the mule's post and back;
 // only a pending hand-over, which is the mule's, still comes before it.
 func DecideWithChest(set Settings, s Snapshot, in ChestInput) Decision {
-	d := Decide(set, s)
+	d := DecideRotating(set, s)
 	if !set.CrystalChest || d.GaveUp || !s.MuleHeard || !s.MuleSameWorld {
 		return d
 	}
@@ -213,7 +213,7 @@ func DecideWithChest(set Settings, s Snapshot, in ChestInput) Decision {
 	if led == nil {
 		led = &Ledger{}
 	}
-	c, why := decideChest(s, led, in)
+	c, why := decideChest(set, s, led, in)
 	if c.Mode == ModeChest && in.OwnKeys > 0 && in.OnFaladorSide && d.Mode != ModeDeliver {
 		c.Why += " (under way: the account is on the Falador side)"
 		return c
@@ -223,6 +223,13 @@ func DecideWithChest(set Settings, s Snapshot, in ChestInput) Decision {
 	// (d.Resume) carries on first.
 	if (d.Mode == ModeRunecraft || d.Mode == ModeNature) && !d.Resume && c.Mode == ModeChest && c.Resume {
 		c.Why += " (owed or left over: it comes before a new " + string(d.Mode) + " round)"
+		return c
+	}
+	// THE CHEST IS A SCHEDULED ROUND (a user request: "triggers when the mule holds 1k+ crystal keys; loot them all"). It ran after
+	// every other round, so the back-to-back trawler blocks and the rounds due at every check kept it off for days. Now it comes
+	// ahead of every NEW round (not a round under way, a hand-over, a campaign's next round or the trawler, which ends in hours).
+	if c.Mode == ModeChest && !c.Resume && d.Mode != ModeSwarm && d.Mode != ModeTrawler && !d.Resume && !d.Continue {
+		c.Why += " (the keys are due: it comes before a new " + string(d.Mode) + " round)"
 		return c
 	}
 	if d.Mode != ModeSwarm {
@@ -235,7 +242,7 @@ func DecideWithChest(set Settings, s Snapshot, in ChestInput) Decision {
 	return d
 }
 
-func decideChest(s Snapshot, led *Ledger, in ChestInput) (Decision, string) {
+func decideChest(set Settings, s Snapshot, led *Ledger, in ChestInput) (Decision, string) {
 	if until, ok := led.BackedOff(ModeDeliver, s.Now); ok {
 		return Decision{}, "chest rounds wait for the hand-over backoff (until " + until.Format("15:04") + ")"
 	}
@@ -255,10 +262,10 @@ func decideChest(s Snapshot, led *Ledger, in ChestInput) (Decision, string) {
 		return Decision{}, "chest: the mule has not published its bank"
 	}
 	n := stockOf(s.Stock, ChestKeyItem)
-	if ChestReady(n) {
-		return Decision{Mode: ModeChest, Why: "the mule holds " + strconv.Itoa(n) + " Crystal keys (threshold " + strconv.Itoa(ChestStartKeys) + ")"}, ""
+	if ChestReadyFor(set, n) {
+		return Decision{Mode: ModeChest, Why: "the mule holds " + strconv.Itoa(n) + " Crystal keys (threshold " + strconv.Itoa(set.Sched.ChestStartKeys) + ")"}, ""
 	}
-	return Decision{}, "the mule holds " + strconv.Itoa(n) + " Crystal keys, under the threshold " + strconv.Itoa(ChestStartKeys)
+	return Decision{}, "the mule holds " + strconv.Itoa(n) + " Crystal keys, under the threshold " + strconv.Itoa(set.Sched.ChestStartKeys)
 }
 
 // ---- the kit ----

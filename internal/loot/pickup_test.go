@@ -41,3 +41,37 @@ func TestRunesAndBonesNoKillClaimedGoUnderTheNewestKill(t *testing.T) {
 		t.Error("a nil kill log recorded a rune")
 	}
 }
+
+func TestAPileIsNeverCreditedToAKillOfAnNpcThatDropsNothing(t *testing.T) {
+	now := time.Now()
+	trooper := Source{Kind: KindNPC, Action: ActionKill, Name: "Khazard trooper", ID: 475}
+	dwarf := Source{Kind: KindNPC, Action: ActionKill, Name: "Dwarf", ID: 118}
+	if !DropsNothing(trooper) || DropsNothing(dwarf) || DropsNothing(Pickup(nil, 526, "Bones")) {
+		t.Fatal("DropsNothing is wrong")
+	}
+	var k KillLog
+	k.Note(dwarf, 3000, 9800, 0, now.Add(-time.Minute))
+	k.Note(trooper, 2522, 3243, 0, now)
+	// Beside the trooper's tile the dwarf's kill, not the newer trooper, is the only claimant left.
+	if src, ok := k.SourceFor(2522, 3243, 0, now); !ok || src.Name != "Dwarf" {
+		t.Errorf("SourceFor = %+v %v", src, ok)
+	}
+	if src, ok := k.Latest(); !ok || src.Name != "Dwarf" {
+		t.Errorf("Latest = %+v %v", src, ok)
+	}
+	var only KillLog
+	only.Note(trooper, 2522, 3243, 0, now)
+	if _, ok := only.SourceFor(2522, 3243, 0, now); ok {
+		t.Error("a trooper alone claimed a pile")
+	}
+	if _, ok := only.Latest(); ok {
+		t.Error("a trooper alone is the latest kill")
+	}
+	// Runes then have no kill, bones get their own card.
+	if _, _, ok := PickupSource(nil, &only, 562, "Chaos rune"); ok {
+		t.Error("a rune was recorded under a trooper")
+	}
+	if src, _, ok := PickupSource(nil, &only, 526, "Bones"); !ok || src.Kind != KindPickup {
+		t.Errorf("bones went to %+v %v", src, ok)
+	}
+}

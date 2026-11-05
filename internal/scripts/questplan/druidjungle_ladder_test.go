@@ -35,7 +35,7 @@ func TestDruidAndJunglePotionSitAfterTheOnePointFillers(t *testing.T) {
 		if f.Finale || f.TrainSkill != "" || f.QPNeeded != 0 || !slices.Equal(f.Prereqs, x.prereq) {
 			t.Errorf("%s row %+v: no training, no finale, no quest-point minimum, prerequisites %v", x.id, f, x.prereq)
 		}
-		// A hard gate would need a named training rung (TestEveryHardGateHasANamedTrainingRung): the levels are the record's.
+		// A hard gate would need a named training rung (TestEveryHardGateHasATrainingRung): the levels are the record's.
 		for _, g := range f.Gates {
 			if g.Hard() {
 				t.Errorf("%s has the hard gate %+v: no rung trains it", x.id, g)

@@ -69,7 +69,8 @@ func LootAndBuryBones(d *Deps, names []string) int {
 	}
 	// a user request: Prayer 43 (Protect prayers) is what combat needs, so an account there or above stops slowing its
 	// training for bones.
-	if BaseLevel(d, boneSkipPrayerStat) >= BoneSkipPrayer {
+	haul := BaseLevel(d, boneSkipPrayerStat) >= BoneSkipPrayer
+	if haul && !d.BoneHaul {
 		return 0
 	}
 	if len(names) == 0 {
@@ -81,6 +82,9 @@ func LootAndBuryBones(d *Deps, names []string) int {
 		return 0
 	}
 	anchor := tile.Tile{X: here.X, Z: here.Z, Level: here.Level}
+	if haul {
+		return haulBones(d, bd, names, anchor)
+	}
 
 	buried := 0
 	skip := map[string]bool{}
@@ -310,4 +314,41 @@ func PenMonsterType(d *Deps, name string, at tile.Tile) (int, bool) {
 		return ids[0], true
 	}
 	return 0, false
+}
+
+// haulBones is LootAndBuryBones for an account at the skip level (boneplan/haul.go): it picks bones up, within the carry cap and
+// the free-slot reserve, and keeps them for the bank; nothing is buried. It returns 0 (no bone was buried).
+func haulBones(d *Deps, bd *boneburierrunner.Deps, names []string, anchor tile.Tile) int {
+	skip := map[string]bool{}
+	for i := 0; i < MaxBonesPerPass; i++ {
+		in := boneplan.HaulInput{Prayer: BaseLevel(d, boneSkipPrayerStat), Skip: BoneSkipPrayer, On: d.BoneHaul,
+			Carried: carriedBones(d, names), Free: FreeSlots(d), Carry: d.BoneHaulCarry}
+		if boneplan.HaulFor(in) != boneplan.HaulCarry {
+			return 0
+		}
+		drop, ok := boneburierrunner.FindBone(bd, anchor, BoneLootRadius, names, skip)
+		if !ok {
+			return 0
+		}
+		packBefore := LootBefore(d)
+		res := boneburierrunner.Collect(bd, drop)
+		if !res.Picked {
+			skip[boneburierrunner.DropKey(drop, "")] = true
+			continue
+		}
+		RecordGroundTake(d, packBefore, drop)
+		d.Delay(300 * time.Millisecond)
+	}
+	return 0
+}
+
+// carriedBones is the bones the pack holds (a bone is a slot each).
+func carriedBones(d *Deps, names []string) int {
+	n := 0
+	for _, it := range PackItems(d) {
+		if boneplan.IsBoneName(it.Name, names) {
+			n += max(it.Count, 1)
+		}
+	}
+	return n
 }

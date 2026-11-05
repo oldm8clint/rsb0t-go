@@ -33,18 +33,20 @@ import (
 	"rsb0t-go/internal/muleledger"
 	"rsb0t-go/internal/phaselog"
 	"rsb0t-go/internal/scripts/donorrunner"
+	"rsb0t-go/internal/scripts/mulereceiverplan"
 	"rsb0t-go/internal/scripts/mulerunner"
 	"rsb0t-go/internal/scripts/orderplan"
 )
 
 // kitMaxDefer is the longest a queued kit waits behind the fishing hand-off before it is served
-// anyway. Well inside donorrunner.DefaultKitTimeout, so the donor is still waiting when it comes.
-const kitMaxDefer = 2 * time.Minute
+// anyway. Shortened from two minutes with the donors' wait (muleAskWaitMinutes, default four): a kit waits at most
+// kitMaxDefer behind the fishers and still leaves its donor kitMinLeft for the bank visit and the trade.
+const kitMaxDefer = 90 * time.Second
 
 // kitMinLeft is the least time a kit's donor must still be waiting for the mule to start its
 // hand-out: a bank visit of up to 28 withdrawals and a trade take about a minute, and a donor that
 // gives up mid-trade leaves the mule holding a drawn kit (revK, S2).
-const kitMinLeft = 2 * time.Minute
+const kitMinLeft = 90 * time.Second
 
 // kitServeGuess is what one kit hand-out is expected to cost, for the "queued" answer's estimate.
 const kitServeGuess = 45 * time.Second
@@ -187,16 +189,39 @@ func (b *muleBot) kitDue() (string, queuedKit, bool) {
 	if key == "" {
 		return "", queuedKit{}, false
 	}
-	quiet := b.fishersQuiet()
-	if quiet {
-		return key, oldest, true
-	}
-	return key, oldest, !b.kitTurnOwed && time.Since(oldest.at) >= kitMaxDefer
+	return key, oldest, mulereceiverplan.KitDue(b.fishersQuiet(), b.kitTurnOwed, time.Since(oldest.at), kitMaxDefer)
 }
 
-// fishersQuiet is whether no hand-off donor is announced and no trade request is waiting.
+// orderGate is the queue state mulereceiverplan.OrderServable reads, the same facts serveOrder acts on.
+func (b *muleBot) orderGate() mulereceiverplan.OrderGate {
+	g := mulereceiverplan.OrderGate{
+		SingleOrders: len(b.orders), Kits: len(b.kits),
+		KitTurnOwed: b.kitTurnOwed, FishersQuiet: b.fishersQuiet(), KitMaxDefer: kitMaxDefer,
+	}
+	for _, q := range b.kits {
+		if age := time.Since(q.at); age > g.OldestKitAge {
+			g.OldestKitAge = age
+		}
+	}
+	return g
+}
+
+// donorPriorityWindow is how long after announcing a hand-off donor keeps kits waiting behind it. On 5 Nov 2026 donors
+// still on their way held kits a whole idleTimeout at a time and left the mule idle 63% of the time.
+const donorPriorityWindow = 20 * time.Second
+
+// fishersQuiet is whether no trade request is waiting and no donor has just announced.
 func (b *muleBot) fishersQuiet() bool {
-	return b.incomingPending() == 0 && b.watcher.QueuedRequests() == 0
+	if b.watcher != nil && b.watcher.QueuedRequests() > 0 {
+		return false
+	}
+	b.incomingPending()
+	for _, at := range b.incoming {
+		if time.Since(at) < donorPriorityWindow {
+			return false
+		}
+	}
+	return true
 }
 
 // keyedKit is a queued kit with its queue key.
@@ -318,6 +343,7 @@ func (b *muleBot) serveKit(ctx *Context, d *mulerunner.Deps) bool {
 			continue
 		}
 		b.servedKits[g.key] = servedKit{id: g.q.msg.KitID, at: time.Now()}
+		b.load.NoteKitWait(time.Now(), time.Since(g.q.at))
 		b.afterKit(ctx, d, g.q.msg, res, finalSent[i])
 	}
 	return true

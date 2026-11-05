@@ -106,7 +106,7 @@ func TestTrawlerRopeSettingAddsTheRopeRound(t *testing.T) {
 	if r.AmmoCapTable.For(AmmoRope) != MaxPriceCap {
 		t.Errorf("Rope cap %d", r.AmmoCapTable.For(AmmoRope))
 	}
-	if got := strings.Join(r.DeliverNotedList, ","); got != "Rope" {
+	if got := strings.Join(r.DeliverNotedList, ","); got != "Rope,Vial of water" {
 		t.Errorf("deliverNoted %s", got)
 	}
 	// ropeFloor 0 leaves Ned out; ammoBuy off or trawlerRope off adds nothing.

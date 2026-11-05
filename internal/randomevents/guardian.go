@@ -109,8 +109,10 @@ type Guardian struct {
 	// and why inFlight alone (a status flag, checked once) isn't sufficient.
 	actionMu sync.Mutex
 
-	mu                 sync.Mutex
-	attempts           map[string]int
+	mu       sync.Mutex
+	attempts map[string]int
+	// toolHead is the lost axe and pickaxe recovery memory (toolheads.go).
+	toolHead           toolHeadState
 	firstAttempt       map[string]time.Time // when this run of attempts began; see noteAttempt
 	cooldownUntil      map[string]time.Time
 	consecutiveGiveups map[string]int
@@ -851,6 +853,10 @@ func (g *Guardian) kick() {
 	// finished here rather than only in the "cleared" branch below (trapreward.go).
 	if name, due := g.trapExitDue(); due {
 		g.runTrapExit(name)
+		return
+	}
+	// A lost axe or pickaxe (toolheads.go): the head is on a two-minute timer, so it is put back before any other event is looked for.
+	if g.recoverToolHead() {
 		return
 	}
 	ev := g.nextEvent()

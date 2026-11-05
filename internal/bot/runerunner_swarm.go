@@ -17,6 +17,7 @@ package bot
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"rsb0t-go/internal/scripts/fleetplan"
@@ -39,11 +40,47 @@ func (b *runeRunnerBot) circuitWorth(ctx *Context) int {
 	return runerunnerplan.CircuitWorth(pairs, func(site string, world int) int { return b.worth(ctx, site, world) })
 }
 
+// circuitWorthAt is circuitWorth projected `after` from now by the content's restock rule from the board's freshest sighting.
+func (b *runeRunnerBot) circuitWorthAt(ctx *Context, after time.Duration) int {
+	if b.circuitWorthAtSeam != nil {
+		return b.circuitWorthAtSeam(ctx, after)
+	}
+	at := time.Now().Add(after)
+	pairs := runerunnerplan.RotationCircuit(b.shopsNow(ctx), b.set.Worlds, b.phase(ctx))
+	return runerunnerplan.CircuitWorth(pairs, func(siteKey string, world int) int {
+		site, ok := runerunnerplan.Site(siteKey)
+		if !ok || !b.set.Enabled(siteKey) {
+			return 0
+		}
+		if off, _ := b.pairGated(siteKey, world, at); off {
+			return 0
+		}
+		return runerunnerplan.Worth(site.Shop, b.estimateAt(site, world, at), b.set.RuneList, b.set.CapTable)
+	})
+}
+
+// fullShelfHorizon is how far on the full-shelf worth is projected: every shelf of the circuit is back at its base long before.
+const fullShelfHorizon = 48 * time.Hour
+
+// restockLine says how restocked the circuit is and when it will be worth walking.
+func (b *runeRunnerBot) restockLine(ctx *Context, c runerunnerplan.SwarmCheck) string {
+	target := c.Target()
+	if c.CircuitWorth >= target {
+		return fmt.Sprintf("restock: circuit worth %d of %d at full shelves (target %d): ready", c.CircuitWorth, c.FullWorth, target)
+	}
+	wait, ok := runerunnerplan.RestockWait(func(d time.Duration) int { return b.circuitWorthAt(ctx, d) }, target, 5*time.Minute, 12*time.Hour)
+	if !ok {
+		return fmt.Sprintf("restock: circuit worth %d of %d at full shelves (target %d): not ready within 12h", c.CircuitWorth, c.FullWorth, target)
+	}
+	return fmt.Sprintf("restock: circuit worth %d of %d at full shelves (target %d): ready in about %s", c.CircuitWorth, c.FullWorth, target, wait.Round(time.Minute))
+}
+
 // swarmCheck is the switch rules' input now.
 func (b *runeRunnerBot) swarmCheck(ctx *Context) runerunnerplan.SwarmCheck {
 	return runerunnerplan.SwarmCheck{
 		On: b.set.SwarmWhileWaiting, Rotation: b.set.Rotation,
 		CircuitWorth: b.circuitWorth(ctx), Resume: b.set.SwarmResumeRunes,
+		FullWorth: b.circuitWorthAt(ctx, fullShelfHorizon), ReadyPercent: b.set.SwarmReadyPercent, MuleShort: b.muleShort,
 	}
 }
 
@@ -59,7 +96,9 @@ func (b *runeRunnerBot) afterRoundSwarm(ctx *Context) bool {
 	if !b.set.SwarmOn() || !b.st.Rotation {
 		return false
 	}
-	ok, why := runerunnerplan.SwarmAfterRound(b.swarmCheck(ctx))
+	check := b.swarmCheck(ctx)
+	ok, why := runerunnerplan.SwarmAfterRound(check)
+	b.logf(ctx, "%s", b.restockLine(ctx, check))
 	if !ok {
 		b.verbosef(ctx, "circuit done: staying on the circuit: %s", why)
 		return false
@@ -93,7 +132,13 @@ func (b *runeRunnerBot) startSwarm(ctx *Context) error {
 	}
 	sw := mk()
 	b.runnerSettings = ctx.Settings
-	ctx.Settings = b.set.SwarmSettingsMap()
+	m := b.set.SwarmSettingsMap()
+	b.noteRanged(ctx)
+	m, added := runerunnerplan.WithRangedTraining(m, b.ranged, b.set.RangedTo40)
+	if len(added) > 0 {
+		b.sayEvery(ctx, "rangedtrain", time.Hour, "ranged %d: ScarabSwarm runs the Ranged stint to %d (%s switched on)", b.ranged, runerunnerplan.RangingGuildRanged, strings.Join(added, ","))
+	}
+	ctx.Settings = m
 	if err := sw.OnStart(ctx); err != nil {
 		ctx.Settings, b.runnerSettings = b.runnerSettings, nil
 		return err
@@ -144,7 +189,9 @@ func (b *runeRunnerBot) swarmLoop(ctx *Context) error {
 	now := time.Now()
 	if b.swarmBack == "" && runerunnerplan.SwarmCheckDue(b.st.SwarmChecked, now, b.set.SwarmEvery()) {
 		b.st.SwarmChecked = now
-		back, why := runerunnerplan.SwarmResume(b.swarmCheck(ctx))
+		check := b.swarmCheck(ctx)
+		back, why := runerunnerplan.SwarmResume(check)
+		b.logf(ctx, "%s", b.restockLine(ctx, check))
 		if back {
 			b.swarmBack = why
 			b.swarmWaitSaid = time.Time{}

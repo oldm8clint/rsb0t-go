@@ -160,7 +160,12 @@ type LadderPlan struct {
 }
 
 // GateRungID is the rung the planner inserts for a hard gate: the named training rung that
-// trains its skill to exactly its level, else the generic stop.
+// trains its skill to exactly its level, else the generic stop (TrainRungID).
+//
+// Both are ids the bot builds (bot.QuestFactoryFor) wherever the trainer catalogue has a row that reaches the level, and
+// the generic stop is built to THAT level and stops there (rungids.go): the named rungs are only the exact-level case.
+// A level no row reaches has no rung, and the catalogue says so as a named gap (Catalogue.GateRung), not as an id with
+// no factory.
 func GateRungID(g Gate) string {
 	if id := trainingRungFor(LadderFacts, g.Skill, g.Level); id != "" {
 		return id
@@ -388,8 +393,9 @@ func firstReady(rest []string, facts map[string]RungFacts, a Account) int {
 
 // trainingRungFor is the named training rung that trains skill to exactly level, if the facts
 // have one. Exactly, not "at least": Nature Spirit's Crafting 18 must not pull the whole
-// Crafting 40 flax stretch forward, it gets a generic stop to 18 and Crafting 40 stays where the
-// Fremennik Trials need it.
+// Crafting 40 flax stretch forward, it gets a stop to 18 and Crafting 40 stays where the
+// Fremennik Trials need it. A level with no named rung gets the generic stop, which the bot builds
+// to that level (rungids.go).
 func trainingRungFor(facts map[string]RungFacts, skill string, level int) string {
 	for id, f := range facts {
 		if strings.EqualFold(f.TrainSkill, skill) && f.TrainLevel == level {

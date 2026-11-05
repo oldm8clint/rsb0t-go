@@ -90,7 +90,7 @@ func TestAmmoSettingsOn(t *testing.T) {
 		t.Errorf("ammo on the classic ring: %v", r.DeliverItems())
 	}
 	// Only unbuilt shops listed, or the shops they are placed with left out, is nothing to place.
-	if r = resolveAmmo(t, `{"ammoBuy": true, "trawlerRope": false, "ammoShops": ["Dargaud", "FishingGuild"]}`); r.AmmoOn() {
+	if r = resolveAmmo(t, `{"ammoBuy": true, "trawlerRope": false, "ammoShops": ["Shantay", "FishingGuild"]}`); r.AmmoOn() {
 		t.Error("only unbuilt shops, yet ammo is on")
 	}
 	if r = resolveAmmo(t, `{"ammoBuy": true, "trawlerRope": false, "ammoShops": ["Gerrant"], "shops": ["Aubury", "Lundail"]}`); r.AmmoOn() {

@@ -227,9 +227,12 @@ func sickleStep(s Snapshot, keep []int) Step {
 			kit = append(kit, KitLine{ID: ObjSilverBar, Name: "Silver bar", Qty: 1})
 		} else {
 			// The ore needs a pickaxe: without one the questproof EMPTY lab run spirit-empty-3
-			// failed mine-silver round after round at the Al Kharid rocks.
+			// failed mine-silver round after round at the Al Kharid rocks. Mining 20 is a level an account can be trained
+			// to (Train): once a Mining trainer exists, an account below it and with no ore from the bank or the mule parks
+			// on "needs:mining:20" for a stint instead of waiting on a block; until one does, the catalogue's gap is
+			// named in the blocked reason.
 			kit = append(kit, pickaxeLine(s), KitLine{ID: ObjSilverOre, Name: "Silver ore", Qty: 1, Sources: []Source{
-				{Kind: SourceSkill, Skill: "mining", Level: 20, Method: MethodMineSilver, Tile: SilverRocks},
+				{Kind: SourceSkill, Skill: "mining", Level: 20, Method: MethodMineSilver, Tile: SilverRocks, Train: true},
 			}})
 		}
 	}

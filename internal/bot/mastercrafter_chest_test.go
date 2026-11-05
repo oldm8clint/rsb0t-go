@@ -8,11 +8,11 @@ import (
 	"rsb0t-go/internal/scripts/mastercraftrunner"
 )
 
-// The chest round follows a gem round straight on, from the mule's post, once the mule has no more
-// gems for it and holds 400 Crystal keys (mastercraftplan.ChestStartKeys); then ScarabSwarm again.
-func TestMasterCrafterChestRoundChainsAfterGems(t *testing.T) {
+// The chest round comes ahead of a NEW gem round once the mule holds 1,000 Crystal keys (craftChestStartKeys, a user request) and
+// the gem round follows it straight on from the mule's post; then ScarabSwarm again.
+func TestMasterCrafterChestRoundComesAheadOfGemsAndChainsOn(t *testing.T) {
 	r := newMasterRig(t)
-	stock := map[string]int{"Uncut sapphire": 900, "Chisel": 1, mastercraftplan.ChestKeyItem: 440}
+	stock := map[string]int{"Uncut sapphire": 900, "Chisel": 1, mastercraftplan.ChestKeyItem: 1040}
 	r.b.decide = func(*Context) mastercraftplan.Decision {
 		r.checks++
 		return mastercraftplan.DecideWithChest(r.b.set, mastercraftplan.Snapshot{
@@ -32,10 +32,10 @@ func TestMasterCrafterChestRoundChainsAfterGems(t *testing.T) {
 		return masterRoundOutcome{Mode: dec.Mode, Produced: 10, Handed: 10, HandoverTried: true}
 	}
 	r.dueNow()
-	r.loop(t) // the check: a gem round is due
-	r.loop(t) // the safe point: the gem round, then the chest round straight on
-	if len(r.rounds) != 2 || r.rounds[0] != mastercraftplan.ModeGems || r.rounds[1] != mastercraftplan.ModeChest {
-		t.Fatalf("rounds %v, want gems then chest", r.rounds)
+	r.loop(t) // the check: the chest is due (1,040 keys)
+	r.loop(t) // the safe point: the chest round, then the gem round straight on
+	if len(r.rounds) != 2 || r.rounds[0] != mastercraftplan.ModeChest || r.rounds[1] != mastercraftplan.ModeGems {
+		t.Fatalf("rounds %v, want chest then gems", r.rounds)
 	}
 	if r.b.swarm == nil {
 		t.Fatal("ScarabSwarm must start again after the chest round")

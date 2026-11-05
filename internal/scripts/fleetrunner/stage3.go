@@ -86,6 +86,21 @@ func RuneCounts(d *Deps, items []gamestate.SlotItem) fleetplan.RuneStock {
 // PackRunes is the runes in the pack.
 func PackRunes(d *Deps) fleetplan.RuneStock { return RuneCounts(d, PackSlotItems(d)) }
 
+// PackValue is the shop value (content's obj cost; coins at face value) of everything in the pack: the figure the Paladin or Hero
+// test's loot value an hour is measured with (scarabplan/rungtest.go). 0 with no config.
+func PackValue(d *Deps) int {
+	if d == nil || d.Config == nil {
+		return 0
+	}
+	total := 0
+	for _, it := range PackSlotItems(d) {
+		if obj, ok := d.Config.Obj(int(it.ID)); ok {
+			total += int(it.Count) * int(obj.Cost)
+		}
+	}
+	return total
+}
+
 // OnlyBladeLeft reports whether worn and pack hold nothing but blades — the condition for
 // leaving the Mage Bank with nothing a death could cost.
 func OnlyBladeLeft(d *Deps) bool {

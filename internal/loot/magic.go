@@ -115,5 +115,61 @@ func CombatSpells() Source {
 // MirrorsCost reports whether a source's Spent only repeats a bill another source already carries, so
 // a total over every source must not subtract it again: the Combat spells row.
 func (s Source) MirrorsCost() bool {
-	return s.Kind == KindProduction && s.Skill == SkillMagic && s.Action == ActionCombat
+	return s.Kind == KindProduction && s.Skill == SkillMagic && (s.Action == ActionCombat || s.Action == ActionSuperheatCast)
+}
+
+// ActionSuperheatCast is the Magic card's Superheat Item row: the casts, their measured bill and the
+// Magic experience they paid.
+//
+// a user request: "superheating should show in the magic panel". The bars stay on the Smithing card
+// (SuperheatCast), where the owner looks for them; the cast itself is ALSO a Magic card row, with its
+// cost and XP. It is a MIRROR like the Combat spells row (MirrorsCost): the bars it made are already
+// valued on Smithing, so the row carries no Items, and its events, runes and ore are not added to a
+// total a second time.
+const ActionSuperheatCast = "superheatcast"
+
+// superheatSpellName and superheatSpellIcon are the row's name and the obj it is drawn with (a Nature rune).
+const (
+	superheatSpellName = "Superheat Item"
+	superheatSpellIcon = natureRuneID
+)
+
+// SuperheatSpell is the Magic card's row for every Superheat Item cast.
+func SuperheatSpell() Source {
+	return Production(SkillMagic, ActionSuperheatCast, superheatSpellIcon, superheatSpellName)
+}
+
+// barOre is the primary ore of each bar a superheat makes, keyed on the bar's obj id (smelting.struct).
+var barOre = map[int]int{
+	2349: 436, // bronze: copper ore (and tin, barSecond)
+	2351: 440, // iron: iron ore
+	2353: 440, // steel: iron ore (and coal)
+	2355: 442, // silver: silver ore
+	2357: 444, // gold: gold ore
+	2359: 447, // mithril: mithril ore
+	2361: 449, // adamantite: adamantite ore
+	2363: 451, // runite: runite ore
+}
+
+// SuperheatCastDrop is the Magic card's record of n casts that made barID from oreName: the events,
+// and the ore, second ingredient, Nature runes and (unless a fire staff was wielded) Fire runes they
+// used as measured Spent. Experience is attached by the caller's experience watch (ClaimsExperience).
+func SuperheatCastDrop(barID int, oreName string, n int, staff bool) Drop {
+	if n <= 0 {
+		return Drop{}
+	}
+	oreID, ok := barOre[barID]
+	if !ok {
+		oreID = barID
+	}
+	nn := int64(n)
+	spent := []Item{{ID: oreID, Name: oreName, Count: nn}}
+	for _, c := range barSecond[barID] {
+		spent = append(spent, Item{ID: c.ID, Name: c.Name, Count: c.Per * nn})
+	}
+	spent = append(spent, Item{ID: natureRuneID, Name: natureRuneName, Count: nn})
+	if !staff {
+		spent = append(spent, Item{ID: fireRuneID, Name: fireRuneName, Count: 4 * nn})
+	}
+	return Drop{Source: SuperheatSpell(), Events: n, Spent: spent}
 }

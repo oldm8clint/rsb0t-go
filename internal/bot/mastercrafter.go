@@ -94,6 +94,13 @@ type masterRoundOutcome struct {
 	// CampaignDecided says a Nature round ended by one of the campaign's own rules and its ledger has set what the account waits for (a
 	// pause, no pause, a refill at once): the gate round's fruitless pause is not added to it.
 	CampaignDecided bool
+	// LimitReached says the round ended at its own time limit (mastercraftplan/roundlimit.go): its mode is paused for
+	// craftRoundLimitPauseMinutes whatever it produced, and that is no failure.
+	LimitReached bool
+	// Phase is the superheat phase the round ran (mastercraftplan.PhaseSteel and the others), RotationKey the batch round's turn it
+	// was (mastercraftplan.RotationKey), SteelOpen that a Steel round ended before the stock reached its stop (schedule.go).
+	Phase, RotationKey string
+	SteelOpen          bool
 	// HandoverTried is set when the round ended with a hand-over to the mule, HandoverFailed when
 	// products were still in the bank afterwards (or the bank could not be read to say). Failed
 	// hand-overs back off on their own account and, in a row, suspend every round.
@@ -187,6 +194,12 @@ func (b *masterCrafterBot) OnStart(ctx *Context) error {
 		return fmt.Errorf("mastercrafter: no collision pack configured (fleet.config.json needs a packPath)")
 	}
 	b.set = set
+	// The cannonballs are the fleet's to smelt when the side role is on (a user request: made by other accounts, not master):
+	// his own cannonball round leaves the schedule (scarabswarm_cannonsmith.go).
+	if IntSetting(ctx.Settings, "sideRoleCannonAccounts", 0) > 0 && b.set.CannonballTarget > 0 {
+		b.set.CannonballTarget = 0
+		b.logf(ctx, "cannonball round: OFF -- sideRoleCannonAccounts is on, so fleet accounts smelt the cannonballs (a ScarabSwarm side role)")
+	}
 	b.mule = StringSetting(ctx.Settings, "mule", bowstringplan.DefaultMule)
 	b.denied = map[string]bool{}
 	b.rounds = map[mastercraftplan.Mode]int{}
@@ -295,6 +308,8 @@ func (b *masterCrafterBot) defaultSwarm() masterSwarm {
 		return &masterPostIdle{b: b}
 	case mastercraftplan.IdleOaks:
 		return &masterOaksIdle{b: b}
+	case mastercraftplan.IdleOaksDaily:
+		return &masterDailyOaks{b: b}
 	}
 	return idleSwarm(b.storeKeep)
 }
@@ -352,7 +367,7 @@ func (b *masterCrafterBot) Loop(ctx *Context) error {
 		// A chest round under way carries on where the account stands (mastercrafter_resume.go), so the
 		// walk to the mule's post it would otherwise need to be near is not asked of it.
 		in.FarFromMule = far(ctx) && !b.resumesHere(ctx, b.pending)
-		if o, ok := b.swarm.(*masterOaksIdle); ok && o.chopping() {
+		if o, ok := b.swarm.(interface{ chopping() bool }); ok && o.chopping() {
 			in.FarFromMule = false // master walks from the Falador oaks to the round himself (mastercrafter_oaks.go)
 		}
 		safe, why := mastercraftplan.SafePoint(in, b.set.SafeHpPercent)
@@ -433,19 +448,24 @@ func (b *masterCrafterBot) decideLive(ctx *Context) mastercraftplan.Decision {
 	}
 	b.supplySnapshot(ctx, &snap)
 	b.smithSnapshot(ctx, &snap)
+	b.stavesSnapshot(ctx, &snap)
+	b.bonesSnapshot(ctx, &snap)
 	b.cannonSnapshot(ctx, &snap)
+	b.cannonRunSnapshot(ctx, &snap)
 	b.storeSnapshot(ctx, &snap)
 	b.runeSnapshot(ctx, &snap)
 	b.trawlerSnapshot(ctx, &snap)
+	b.schedSnapshot(ctx, &snap)
 	b.campaignReconcile(ctx, snap)
 	was0 := b.ledger.Trawler.BlockStart
 	if mastercraftplan.TrawlerCycleBefore(b.set, snap.Trawler, &b.ledger, snap.Now) {
-		if mastercraftplan.TrawlerRestLen > 0 {
-			b.logf(ctx, "trawler: the two-hour block is over: resting until %s (every crafting round at its threshold first, else ScarabSwarm)", b.ledger.Trawler.RestUntil.Format("15:04"))
+		if b.set.Sched.TrawlerRest > 0 {
+			b.logf(ctx, "trawler: the block is over (%s played): resting until %s (every due round first, else ScarabSwarm); the next starts while the mule holds under %d Raw sea turtle, Raw manta ray and Raw shark together (it holds %d)",
+				snap.Now.Sub(was0).Round(time.Minute), b.ledger.Trawler.RestUntil.Format("15:04"), b.set.TrawlerFoodLow, snap.Trawler.Food)
 		} else if t := snap.Trawler; b.set.TrawlerFoodLow > 0 && t.FoodKnown {
-			b.logf(ctx, "trawler: the block is over (%s played): the mule holds %d food; the next starts while it holds under %d", snap.Now.Sub(was0).Round(time.Minute), t.Food, b.set.TrawlerFoodLow)
+			b.logf(ctx, "trawler: the block is over (%s played): the mule holds %d raw sea turtle, manta ray and shark; the next starts while it holds under %d", snap.Now.Sub(was0).Round(time.Minute), t.Food, b.set.TrawlerFoodLow)
 		} else {
-			b.logf(ctx, "trawler: the two-hour block is over: the next starts now (no rest; the mule's food not read)")
+			b.logf(ctx, "trawler: the block is over (%s played): the next starts now (no rest; the mule's raw fish not read)", snap.Now.Sub(was0).Round(time.Minute))
 		}
 		b.saveLedger(ctx)
 	}
@@ -456,7 +476,7 @@ func (b *masterCrafterBot) decideLive(ctx *Context) mastercraftplan.Decision {
 		switch {
 		case was.BlockStart.IsZero() && !now.BlockStart.IsZero():
 			b.ledger.Trawler.BlockXP, b.ledger.Trawler.BlockXPAt = b.trawlerXPNow(ctx), time.Now()
-			b.logf(ctx, "trawler: a two-hour block starts (Fishing %d XP)", snap.Trawler.FishingXP)
+			b.logf(ctx, "trawler: a %s block starts (Fishing %d XP; the mule holds %d raw sea turtle, manta ray and shark)", b.set.Sched.TrawlerBlock, snap.Trawler.FishingXP, snap.Trawler.Food)
 		case now.RestCrafted:
 			b.logf(ctx, "trawler: resting with a %s round to do: the next block starts when nothing is left to craft, or at %s", dec.Mode, b.ledger.Trawler.RestUntil.Format("15:04"))
 		default:
@@ -515,6 +535,12 @@ func (b *masterCrafterBot) switchTo(ctx *Context, dec mastercraftplan.Decision) 
 	for chained := 0; ; chained++ {
 		started := time.Now()
 		out := round(ctx, dec)
+		if out.RotationKey == "" {
+			out.RotationKey = mastercraftplan.RotationKey(dec)
+		}
+		if out.Phase == "" && dec.Mode == mastercraftplan.ModeSuperheat {
+			out.Phase = dec.Heat.Name
+		}
 		b.afterRound(ctx, out, time.Since(started))
 		b.pending = mastercraftplan.Decision{}
 		b.lastCheck, b.every = time.Now(), b.set.CheckEvery
@@ -609,8 +635,16 @@ func (b *masterCrafterBot) afterRound(ctx *Context, out masterRoundOutcome, took
 		l.SuperheatRounds++
 	case mastercraftplan.ModeSmith:
 		l.SmithRounds++ // the bars, arrowtips and platebodies are counted by the round itself
+	case mastercraftplan.ModePlatebody:
+		// The round counts its own rounds, bars and platebodies (Ledger.Plate).
+	case mastercraftplan.ModeStaves:
+		// The round counts its own rounds and Fire battlestaves (Ledger.Staves).
+	case mastercraftplan.ModeBones:
+		// The round counts its own rounds, bones and Prayer experience (Ledger.Bones).
 	case mastercraftplan.ModeCannonballs:
 		// The round counts its own rounds, bars, balls and hand-overs (Ledger.Cannon).
+	case mastercraftplan.ModeCannonRun:
+		// The round counts its own rounds, balls used and cannons (Ledger.CannonRun).
 	case mastercraftplan.ModeArrows:
 		l.ArrowRounds++
 	case mastercraftplan.ModeHerbs:
@@ -626,6 +660,7 @@ func (b *masterCrafterBot) afterRound(ctx *Context, out masterRoundOutcome, took
 	}
 	if !ctx.Stopped() {
 		b.recordWaits(ctx, out, time.Now())
+		b.noteScheduleEnd(ctx, out, time.Now())
 	}
 	b.logf(ctx, "ROUND mode=%s took=%s produced=%d handed=%d transient=%v handoverFailed=%v pendingHandover=%v pendingCut=%v: %s",
 		out.Mode, took.Round(time.Second), out.Produced, out.Handed, out.Transient, out.HandoverFailed, l.PendingDeliver, l.PendingCut, out.Why)
@@ -656,7 +691,7 @@ func (b *masterCrafterBot) recordWaits(ctx *Context, out masterRoundOutcome, now
 	}
 	switch out.Mode {
 	case mastercraftplan.ModeGems, mastercraftplan.ModeBows, mastercraftplan.ModePearls, mastercraftplan.ModeStore,
-		mastercraftplan.ModeShop, mastercraftplan.ModeSuperheat, mastercraftplan.ModeSmith, mastercraftplan.ModeArrows, mastercraftplan.ModeHerbs, mastercraftplan.ModeCannonballs:
+		mastercraftplan.ModeShop, mastercraftplan.ModeSuperheat, mastercraftplan.ModeSmith, mastercraftplan.ModeArrows, mastercraftplan.ModeHerbs, mastercraftplan.ModeCannonballs, mastercraftplan.ModePlatebody, mastercraftplan.ModeStaves, mastercraftplan.ModeBones, mastercraftplan.ModeCannonRun:
 		pause := &l.GemPauseUntil
 		switch out.Mode {
 		case mastercraftplan.ModeBows:
@@ -673,12 +708,23 @@ func (b *masterCrafterBot) recordWaits(ctx *Context, out masterRoundOutcome, now
 			pause = &l.SmithPauseUntil
 		case mastercraftplan.ModeCannonballs:
 			pause = &l.Cannon.PauseUntil
+		case mastercraftplan.ModeCannonRun:
+			pause = &l.CannonRun.PauseUntil
+		case mastercraftplan.ModePlatebody:
+			pause = &l.Plate.PauseUntil
+		case mastercraftplan.ModeStaves:
+			pause = &l.Staves.PauseUntil
+		case mastercraftplan.ModeBones:
+			pause = &l.Bones.PauseUntil
 		case mastercraftplan.ModeArrows:
 			pause = &l.ArrowPauseUntil
 		case mastercraftplan.ModeHerbs:
 			pause = &l.HerbPauseUntil
 		}
 		switch {
+		case out.LimitReached:
+			l.Succeed(out.Mode)
+			l.PauseForLimit(out.Mode, now, set)
 		case out.Produced > 0:
 			l.Succeed(out.Mode)
 			*pause = time.Time{}

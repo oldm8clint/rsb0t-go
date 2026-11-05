@@ -13,10 +13,10 @@ import (
 func TestHazeelCultAndTheElementalWorkshopSitAfterTheSeaSlug(t *testing.T) {
 	at := func(id string) int { return slices.Index(OwnerLadder, id) }
 	h, e := at(HazeelCultID), at(ElementalWorkshopID)
-	// They are the last two fillers ahead of Black Knights' Fortress, after the Sea Slug Quest and the quests merged between them
-	// (ownerFillerTail spells the whole tail).
-	if h < 0 || e != h+1 || h <= at(SeaSlugID) || at(BlackKnightsFortressID) != e+1 || at("dragon") != len(OwnerLadder)-1 {
-		t.Fatalf("OwnerLadder %v: want ... seaslug, ..., hazeelcult, elemental_workshop, blackknight, dragon", OwnerLadder)
+	// They are two fillers ahead of Black Knights' Fortress, after the Sea Slug Quest and the quests merged between them, and the Tourist
+	// Trap follows them (ownerFillerTail spells the whole tail).
+	if h < 0 || e != h+1 || h <= at(SeaSlugID) || at(TouristTrapID) != e+1 || at(BlackKnightsFortressID) != e+2 || at("dragon") != len(OwnerLadder)-1 {
+		t.Fatalf("OwnerLadder %v: want ... seaslug, ..., hazeelcult, elemental_workshop, desertrescue, blackknight, dragon", OwnerLadder)
 	}
 	for _, x := range []struct {
 		id     string

@@ -85,11 +85,17 @@ type Source struct {
 
 	// Skill and Level are a skill source's gate; Method names the runner executor that
 	// works it ("thieve-cake", "mine-clay"). A skill source below its level is skipped, not
-	// trained: training is the ladder's job (ladder.go), which places a training rung before
-	// the quest that needs it.
+	// trained here: training is the ladder's job (ladder.go), which places a training rung before
+	// the quest that needs it, and the needs engine's, which Train asks for.
 	Skill  string
 	Level  int
 	Method string
+	// Train marks a skill source the needs engine can train for (lane N4, provisiontrain.go): when every other source of the
+	// line is gone or below its level and the account is below Level, the plan answers PhaseTrain, naming the skill and the
+	// level, instead of PhaseBlocked, as long as the trainer catalogue covers the stretch. The stint runs outside the quest's
+	// slot: the engine ends the run and parks the quest on "needs:<skill>:<level>". Without it a source below its level is
+	// skipped, as it always was.
+	Train bool
 
 	// Shop is a shop source's keeper; Price is coins EACH, the content's base cost. It is a
 	// floor for budgeting: the real price rises as stock falls.
@@ -168,6 +174,9 @@ func ValidateKitLine(l KitLine) string {
 		return "kit line " + l.Name + " has a minimum outside 0 and its quantity"
 	}
 	for _, s := range l.Sources {
+		if s.Train && s.Kind != SourceSkill {
+			return "kit line " + l.Name + " marks a " + string(s.Kind) + " source Train: only a skill source can be trained for"
+		}
 		switch s.Kind {
 		case SourceGround:
 			if s.Tile == (tile.Tile{}) {
@@ -176,6 +185,9 @@ func ValidateKitLine(l KitLine) string {
 		case SourceSkill:
 			if s.Method == "" || s.Skill == "" {
 				return "kit line " + l.Name + " has a skill source with no method or skill"
+			}
+			if s.Train && s.Level <= 0 {
+				return "kit line " + l.Name + " marks a skill source Train that has no level to train for"
 			}
 		case SourceShop:
 			if s.Shop.Npc == "" && s.Shop.NpcID == 0 {
@@ -248,6 +260,8 @@ type ProvisionState struct {
 	// shop across the map is reached over ship fares and gates, and the prices are only a floor
 	// (content's price rises as the stock falls). Zero draws exactly the prices.
 	TravelFloat int
+	// Trainers is the trainer catalogue a Train source is checked against; nil means SharedCatalogue (the default rows).
+	Trainers *Catalogue
 	// CoinsDrawn is set once this provisioning round has already drawn its coins: the margin
 	// and the float are then not topped up again, only a pack short of the bare prices goes
 	// back to the bank. The fourth Waterfall EMPTY lab run, without it, sailed from Betty back to
@@ -287,6 +301,11 @@ const (
 	PhaseSource ProvisionPhase = "source"
 	// PhaseBlocked means nothing can cover what is short: Blocked says why.
 	PhaseBlocked ProvisionPhase = "blocked"
+	// PhaseTrain means the kit is complete but for lines whose only source left is a skill source (Source.Train) the account is
+	// below the level of, and the trainer catalogue can train it: Train says which skill and level. It is answered only when
+	// every other phase is done and nothing is blocked. The runner never works it; the engine ends the run and parks the
+	// quest on the need (provisiontrain.go).
+	PhaseTrain ProvisionPhase = "train"
 )
 
 // ProvisionPlan is PlanProvision's answer.
@@ -301,6 +320,8 @@ type ProvisionPlan struct {
 	MuleAsk []ItemCount
 	// Tasks are the ground, skill and shop jobs, in kit order.
 	Tasks []SourceTask
+	// Train are the lines waiting for a stint (PhaseTrain), in kit order.
+	Train []TrainNeed
 	// Blocked names the non-optional lines no source covers.
 	Blocked []string
 	// ShopCoins is what the shop tasks will cost at base price.
@@ -318,6 +339,9 @@ func (p ProvisionPlan) Summary() string {
 	}
 	for _, t := range p.Tasks {
 		parts = append(parts, t.Describe())
+	}
+	for _, n := range p.Train {
+		parts = append(parts, "TRAIN: "+n.Describe())
 	}
 	if len(p.Blocked) > 0 {
 		parts = append(parts, "BLOCKED: "+strings.Join(p.Blocked, "; "))
@@ -362,6 +386,9 @@ func (l KitLine) Held(pack, worn map[int]int) int {
 //     unstacked items and at the pack's room.
 //  3. Ground spawns, 4. own skills (only where the level is already met), 5. shops, each
 //     skipped once it has failed this round (Exhausted).
+//  6. Training (PhaseTrain, lane N4): a skill source marked Source.Train that the account is below the level of is the
+//     last resort, after every source above, only where the trainer catalogue covers the stretch and only when no other
+//     line is blocked. The plan says so; the runner never works it (provisiontrain.go).
 //
 // Shop coins are budgeted: pack coins first, then bank coins through the same withdrawal.
 func PlanProvision(kit []KitLine, st ProvisionState) ProvisionPlan {
@@ -371,6 +398,13 @@ func PlanProvision(kit []KitLine, st ProvisionState) ProvisionPlan {
 	muleLeft := copyCounts(st.Mule)
 	muleSlots := 0
 	var needBankRead bool
+	// The trainer catalogue, asked for only when a Train source needs it.
+	catalogue := func() Catalogue {
+		if st.Trainers != nil {
+			return *st.Trainers
+		}
+		return SharedCatalogue()
+	}
 
 	shortLine := func(id int) bool {
 		for _, k := range kit {
@@ -456,6 +490,7 @@ func PlanProvision(kit []KitLine, st ProvisionState) ProvisionPlan {
 		srcs := append([]Source(nil), l.Sources...)
 		sort.SliceStable(srcs, func(i, j int) bool { return ruleRank(srcs[i].Kind) < ruleRank(srcs[j].Kind) })
 		placed := false
+		var trainCand *Source // the first skill source marked Train that the account is below the level of
 		for _, s := range srcs {
 			if st.Exhausted[SourceKey(l, s)] {
 				continue
@@ -463,6 +498,10 @@ func PlanProvision(kit []KitLine, st ProvisionState) ProvisionPlan {
 			switch s.Kind {
 			case SourceSkill:
 				if s.Level > 0 && st.Levels[strings.ToLower(s.Skill)] < s.Level {
+					if s.Train && trainCand == nil {
+						c := s
+						trainCand = &c
+					}
 					continue
 				}
 			case SourceShop:
@@ -486,7 +525,19 @@ func PlanProvision(kit []KitLine, st ProvisionState) ProvisionPlan {
 			break
 		}
 		if !placed && !l.Optional {
-			p.Blocked = append(p.Blocked, fmt.Sprintf("%d %s: %s", short, l.Name, noSourceWhy(l, st)))
+			// Training is the last resort, and only where a trainer exists: a source the account is below the level of that
+			// the needs engine can train for is a stint to wait for, not a block. A gap in the catalogue is a block with
+			// its name (plan 3.1, rule 6).
+			gap := ""
+			if trainCand != nil {
+				need, why := trainability(l, *trainCand, short, st.Levels[strings.ToLower(trainCand.Skill)], catalogue())
+				if why == "" {
+					p.Train = append(p.Train, need)
+					continue
+				}
+				gap = "; " + why
+			}
+			p.Blocked = append(p.Blocked, fmt.Sprintf("%d %s: %s%s", short, l.Name, noSourceWhy(l, st), gap))
 		}
 	}
 
@@ -495,6 +546,7 @@ func PlanProvision(kit []KitLine, st ProvisionState) ProvisionPlan {
 		p.Withdraw = nil
 		p.MuleAsk = nil
 		p.Tasks = nil
+		p.Train = nil
 		p.Blocked = nil
 		return p
 	}
@@ -534,6 +586,10 @@ func PlanProvision(kit []KitLine, st ProvisionState) ProvisionPlan {
 		p.Phase = PhaseMule
 	case len(p.Tasks) > 0 && !coinsBlocked(p):
 		p.Phase = PhaseSource
+	case len(p.Train) > 0 && len(p.Blocked) == 0:
+		// Everything the account can fetch has been fetched and nothing else is blocked: what is left is a level. A kit with
+		// another line blocked for good would train for nothing, so that stays PhaseBlocked.
+		p.Phase = PhaseTrain
 	case allOptional(kit, p.Short) && len(p.Blocked) == 0:
 		p.Phase = PhaseSatisfied
 	default:

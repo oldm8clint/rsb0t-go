@@ -271,6 +271,7 @@ func TestDecideRanksTheCannonballRound(t *testing.T) {
 	// The trawler round (a block is on) comes before it.
 	set.Trawler = true
 	s = cannonSnap(map[string]int{"Steel bar": 8001})
+	s.Trawler.FoodKnown = true
 	if d := Decide(set, s); d.Mode != ModeTrawler {
 		t.Errorf("trawler first: %+v", d)
 	}

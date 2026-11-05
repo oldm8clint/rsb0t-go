@@ -135,6 +135,9 @@ type wcfletchBot struct {
 	// gate looks at the mule's queue before a load is drawn (drawgate.go).
 	gate drawGate
 
+	// oaks is the 2-tick oak rule (wcfletch_oaks.go): twoTickOaks, level-driven by default.
+	oaks wcfletchOaks
+
 	// home is the homeWorld setting's state (homeworld.go).
 	home homeWorld
 
@@ -267,6 +270,8 @@ func (b *wcfletchBot) OnStart(ctx *Context) error {
 	// the two. Users asked for this on ProgressiveWoodcutter, and that is where it stays.
 	b.fastAxeTiers = false
 	b.cfg = wcfletchSettings(ctx.Settings)
+	b.oaks.configure(ctx.Settings)
+	b.oaks.target = b.cfg.Wood.Target
 	b.cfg.Wood = b.woodcutterBot.settings // already normalised and jittered by the embedded OnStart
 	b.cfg = b.cfg.Normalised()
 	// Spread this script's own hand-over threshold across the cohort too, for the same reason
@@ -332,6 +337,10 @@ func (b *wcfletchBot) Loop(ctx *Context) error {
 	// Both waits used to be silent and unbounded; the second is where Acct188 sat for twenty
 	// minutes after a Mime (loopgate.go).
 	if b.loopWaits.holdForTrade(ctx, "wcfletch") {
+		return nil
+	}
+	// The 2-tick oaks, inside the day's allowance (wcfletch_oaks.go).
+	if b.oaks.step(ctx, d) {
 		return nil
 	}
 	// On another world than homeWorld: go home before anything that needs the mule (a hand-out
@@ -537,6 +546,12 @@ func (b *wcfletchBot) Loop(ctx *Context) error {
 	case woodcutplan.PhaseStore:
 		b.storeStep(ctx, d)
 	case woodcutplan.PhaseStart:
+		// THE DRAYNOR START CAMP (Woodcutting under the oak gate) is tick-manipulated too (audit, 5 Nov 2026): d.Manip was set only by
+		// chopRung, so every account below Woodcutting 25 chopped its dead trees on the plain 4-tick roll. The camp's chop is the same
+		// Chop; its logs (kept until the shaft fletch) are the carrier the knife batch needs.
+		if b.manip != nil {
+			d.Manip = &woodcutrunner.ManipConfig{Enabled: true, State: b.manip}
+		}
 		b.startCampStep(ctx, d, s)
 	case woodcutplan.PhaseFund:
 		freshstartrunner.PickpocketStep(fd, b.thief, freshstartrunner.PickpocketOpts{
@@ -1265,6 +1280,7 @@ func (b *wcfletchBot) handoffFletched(ctx *Context, d *woodcutrunner.Deps) error
 }
 
 func (b *wcfletchBot) OnStop(ctx *Context) {
+	b.oaks.stop(ctx)
 	d := b.deps(ctx)
 	rung := "not started"
 	if b.haveRung {

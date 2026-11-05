@@ -19,7 +19,7 @@ func TestRankAlchables(t *testing.T) {
 		{Name: "Nature rune", Count: 100, Value: 12},
 		{Name: "Coins", Count: 5000, Value: 1},
 		{Name: "Staff of fire", Count: 1, Value: 900},
-		{Name: "Rune platebody", Count: 1, Value: 39000},
+		{Name: "Rune kiteshield", Count: 1, Value: 39000},
 		{Name: "Shortbow", Count: 0, Value: 13},
 	}
 	got := RankAlchables(held, modesOn())
@@ -27,9 +27,9 @@ func TestRankAlchables(t *testing.T) {
 		t.Fatalf("ranked %+v", got)
 	}
 	s := modesOn()
-	s.AlchItems = []string{"Rune platebody", "Nature rune", "Staff of fire"}
+	s.AlchItems = []string{"Rune kiteshield", "Nature rune", "Staff of fire"}
 	got = RankAlchables(held, s)
-	if len(got) != 1 || got[0].Name != "Rune platebody" {
+	if len(got) != 1 || got[0].Name != "Rune kiteshield" {
 		t.Fatalf("a named item is allowed, a rune or a staff never: %+v", got)
 	}
 	s.AlchMinValue = 50000

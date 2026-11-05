@@ -376,3 +376,69 @@ func (l *lootAggregator) deathsViews(now, processStart int64) (lifetime, session
 	session = deathsView(deaths, prices, now, processStart)
 	return lifetime, session
 }
+
+// THE TRACKER NET OF DEATHS (a user request: "says we have looted 522 potato cactus but the combined bank only shows 160 total, we
+// should deduct things from the loot tracker if we die with it").
+//
+// What a death dropped and nobody took back is gone for good once the pile's window has closed (deathloot). It was looted, so the tracker
+// counted it, and it is no longer anywhere the fleet can use it. The tracker deducts it from the dead ACCOUNT'S own rows (the death says
+// whose pack it was), up to what the account's rows hold of that item: Item.Count is the net, Item.Raw the figure before deductions, so
+// the raw count stays one hover away. Coins are never deducted (an account carries far more than it looted), and a pile still open is
+// not deducted until it closes. An item an account carried in from a bank is deducted too if its rows hold some of the same kind, which
+// slightly over-deducts; the cap by the account's own rows is what keeps that bounded.
+
+// deathLossesBy is, per account, how many of each item deaths since since (0 for all) took for good at now.
+func deathLossesBy(deaths []deathloot.Death, now, since int64) map[string]map[int]int64 {
+	var out map[string]map[int]int64
+	for _, d := range deaths {
+		if d.At < since || now <= d.WindowEnd() {
+			continue
+		}
+		for _, s := range d.Items {
+			gone := s.Remaining()
+			if gone <= 0 || s.ID == coinsID {
+				continue
+			}
+			if out == nil {
+				out = map[string]map[int]int64{}
+			}
+			if out[d.Account] == nil {
+				out[d.Account] = map[int]int64{}
+			}
+			out[d.Account][s.ID] += gone
+		}
+	}
+	return out
+}
+
+// deductLost returns items net of what lost still holds for each item id, drawing lost down as it goes. An item with a deduction carries
+// the raw count in Raw. items is not modified; with nothing to deduct it is returned as it is.
+func deductLost(items []loot.Item, lost map[int]int64) []loot.Item {
+	if len(lost) == 0 {
+		return items
+	}
+	var out []loot.Item
+	for i, it := range items {
+		take := lost[it.ID]
+		if take > it.Count {
+			take = it.Count
+		}
+		if take <= 0 {
+			if out != nil {
+				out = append(out, it)
+			}
+			continue
+		}
+		if out == nil {
+			out = append(out, items[:i]...)
+		}
+		lost[it.ID] -= take
+		it.Raw = it.Count
+		it.Count -= take
+		out = append(out, it)
+	}
+	if out == nil {
+		return items
+	}
+	return out
+}

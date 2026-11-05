@@ -9,7 +9,7 @@ package questplan
 
 // OwnerLadder is the owner's order (2026-09-23 ~11:10-11:15), by rung id. Goblin Diplomacy, Romeo & Juliet and the fillers built
 // after them (Ernest the Chicken, Pirate's Treasure, Prince Ali Rescue, Doric's Quest, Gertrude's Cat, Monk's Friend, the Clock
-// Tower, Demon Slayer, Druidic Ritual, Jungle Potion, Tai Bwo Wannai Trio, Plague City, Biohazard, Tribal Totem, the Fishing Contest, the Observatory Quest, the Sea Slug Quest, Sheep Herder, Dwarf Cannon, Hazeel Cult, the Elemental Workshop and Black Knights' Fortress) are quest-point fillers (W13 of docs/quest_plan_2026-10-15.md, built 15-18 Oct 2026): the
+// Tower, Demon Slayer, Druidic Ritual, Jungle Potion, Tai Bwo Wannai Trio, Plague City, Biohazard, Tribal Totem, the Fishing Contest, the Observatory Quest, the Sea Slug Quest, Sheep Herder, Dwarf Cannon, the Watch Tower, Lost City, Big Chompy Bird Hunting, Shades of Mort'ton, the Knight's Sword, Hazeel Cult, the Elemental Workshop, the Tourist Trap and Black Knights' Fortress) are quest-point fillers (W13 of docs/quest_plan_2026-10-15.md, built 15-18 Oct 2026): the
 // planner (PlanLadder) inserts one when a quest wants more quest points than the plan has, and the live ladder
 // runs them as the last stops before Dragon Slayer, which wants 32. They are unproven, so only an account
 // that allows unproven quests reaches them, in the tail. Dragon Slayer itself is HELD (HeldRungs): the fillers
@@ -72,10 +72,43 @@ var OwnerLadder = []string{
 	// the cave are priced), W13 of docs/quest_plan_2026-10-15.md, unproven like the tail they join and ahead of Black Knights' Fortress,
 	// whose 12 quest points they help to make.
 	"sheepherder", "mcannon",
+	// The Watch Tower (4 quest points and 15,300 Magic experience, W13 of docs/quest_plan_2026-10-15.md, built 19 Oct 2026): the longest of the fillers and
+	// the one the fleet is least ready for. Its levels (Agility 18 and 25, Thieving 15, Herblore 14, Magic 14, Mining 40) are each its own step's gate, not the
+	// Record's, so an account goes as far as it can and parks at the first step it cannot do, with the reason; and its supplies (an adult dragon's bones, bat
+	// bones) are nobody's gather, so it parks before the first risk until the bank or the mule holds them. Unproven, like the tail it joins, ahead of Black
+	// Knights' Fortress.
+	"itwatchtower",
+	// Lost City (3 quest points, Crafting 31, Woodcutting 36 and Magic 25 on its record, W13 of docs/quest_plan_2026-10-15.md): Entrana's dungeon holds the Dramen
+	// tree. The account banks every weapon and axe, sails bare, takes an axe from a zombie, runs the corridor of two greater demons and CASTS at the Tree
+	// spirit (level 101, 85 hitpoints, a hit of 10): the fight and the corridor are priced on the account's levels and the pack it sails with
+	// (questplan.LcSpiritOdds, LcCorridorFit) and refused for six hours when the model loses, so most of the fleet's melee levels never go and its
+	// Magic 66 casters do. The way out is a Varrock Teleport cast in the dungeon (Magic 25, its runes in the kit; the Magic door, which sets the account down in the Wilderness at level 32, is only the last resort). After
+	// Dwarf Cannon and ahead of Hazeel Cult, the Elemental Workshop and Black Knights' Fortress, unproven like the tail it joins.
+	"zanaris",
+	// Big Chompy Bird Hunting (2 quest points, W13 of docs/quest_plan_2026-10-15.md, built 19 Oct 2026): Ranged and Cooking 30, Fletching and Crafting 5 on its
+	// record, the arrows made from a Feldip wolf's bones (priced before the quest is begun and before every kill), a chompy bird baited with a bloated toad and
+	// shot with Rantz's bow, and a roast on his spit. Ahead of Black Knights' Fortress like the other fillers, unproven like the tail it joins.
+	"chompybird",
+	// Shades of Mort'ton (3 quest points, 2,000 Crafting and 2,000 Herblore experience, W13 of docs/quest_plan_2026-10-15.md, built 19 Oct 2026): behind Nature
+	// Spirit (the Mort Myre gate), Herblore 15 and Crafting 20 on its record, five Loar shades priced two at a time before the hunt and before the temple is built.
+	// Placed after the Digsite Quest, whose Herblore experience is the account's way to level 15, and ahead of Black Knights' Fortress like the other fillers;
+	// unproven like the tail it joins.
+	"mortton",
+	// The Knight's Sword (1 quest point and 12,725 Smithing experience, W22 of docs/quest_plan_2026-10-15.md): the Squire, Reldo, a redberry
+	// pie for Thurgo, the portrait from Sir Vyvin's cupboard, and a blurite ore from the Asgarnian Ice Dungeon, which killed more than twenty-five
+	// accounts in October 2026. The dungeon is walked through and never fought in, priced on hitpoints, Defence and food and refused below 60
+	// hitpoints and combat 58 (the record states the levels, so the ladder does not start an account without them). Placed after Dwarf
+	// Cannon and ahead of Hazeel Cult and the Elemental Workshop, unproven like the tail it joins.
+	"squire",
 	// Hazeel Cult (1 quest point, the cult's side: no monster is fought) and the Elemental Workshop (1 quest point, Mining, Smithing and
 	// Crafting 20 on its record, one earth elemental priced before the descent): W13 of docs/quest_plan_2026-10-15.md, built 19 Oct 2026,
 	// ahead of Black Knights' Fortress like the other fillers and unproven like the tail they join.
 	"hazeelcult", "elemental_workshop",
+	// The Tourist Trap (2 quest points, W22 of docs/quest_plan_2026-10-15.md, built 19 Oct 2026): behind Smithing 20 and Fletching 10 on its record
+	// (the anvil and the feathers; no rung trains either, so the ladder starts it only for an account that has them), the Mercenary Captain priced
+	// before the account crosses the Shantay pass, the desert's heat priced in waterskins, and the reward (4,650 experience twice) taken in Thieving.
+	// Unproven, like the tail it joins, and ahead of Black Knights' Fortress, whose 12 quest points it helps to make.
+	"desertrescue",
 	// Black Knights' Fortress (3 quest points, W13 of docs/quest_plan_2026-10-15.md): the filler that wants 12 of them, last in
 	// line so that the proven quests and the fillers above have paid theirs. Unproven, like the tail it joins.
 	"blackknight",
@@ -369,6 +402,55 @@ var LadderFacts = map[string]RungFacts{
 		Region: "Seers' Village (the bookcase, the smithy's secret room) and the workshop under it; Catherby's and Al Kharid's shops for the hammer, a pickaxe and thread", EstMinutes: 45,
 		Source: "defs/elementalworkshop/*.ts; questplan/elementalworkshop.go (content quest_elemental_workshop, W13 of docs/quest_plan_2026-10-15.md)",
 		Notes:  "the Battered book from the bookcase read, a knife through its spine for the key, the key on the smithy's Odd looking wall (it opens from outside only with the key, from inside with a Push), the spiral stairs down; the machine: the two valves in order and the lever for the water wheel, a needle and a leather from the crates (once per account) and a thread brought for the bellows (Crafting 20), a stone bowl from a crate filled at the lava trough and emptied on the furnace, then the Pile of Rock mined (Mining 20 and a pickaxe): it sets a level 35 earth elemental (35 hitpoints, a hit of up to 4 every 6 ticks) on the account, the ONE fight, priced on the account's levels and food before the descent and again at the rock, parked 6 hours when the model loses and a day after a death there; its ore and four coal smelted (the air lever pulled when the furnace asks for more heat) and the bar made into the shield on the workbench (a hammer, Smithing 20, the book in the pack). The other 20 elementals have no hunt mode and are never woken; the hammer and a pickaxe come from Arhein's store, the thread from Dommik's, the coal and the food from the bank or the mule; 5,000 Crafting and 5,028 Smithing XP"},
+	"itwatchtower": {ID: WatchtowerID, Name: WatchtowerName, QP: WatchtowerRecord.QuestPoints, Filler: true,
+		// Each level is the content's own at its own step (Agility 18 at the wall, Thieving 15 at the stall, Agility 25 at the chasm, Herblore 14 for the mixes,
+		// Magic 14 for the potion on the shamans, Mining 40 for the Rock of Dalgroth) and none is the Record's: the module goes as far as the account can and parks
+		// at the first step it cannot do. They are listed as advised, not as server gates, on purpose: a hard gate must name a training rung the ladder can run
+		// (TestEveryHardGateHasARungThatProducesIt), and no Herblore, Mining, Thieving or Magic rung exists (Agility 18 is under the Agility 25 rung's target).
+		Gates: []Gate{
+			{Skill: "agility", Level: WtAgilityChasm, Kind: GateAdvised, Note: "18 at the tower wall at the start, 10 for the swing back off Grew's island, 25 for the chasm in Gu'Tanoth; each parks its own step"},
+			{Skill: "thieving", Level: WtThieving, Kind: GateAdvised, Note: "server-enforced at the ogre trader's rock cake stall"},
+			{Skill: "herblore", Level: WtHerblore, Kind: GateAdvised, Note: "server-enforced at the second and third mixes of the ogre potion; no Herblore rung trains it"},
+			{Skill: "magic", Level: WtMagic, Kind: GateAdvised, Note: "server-enforced when the magic ogre potion is used on a shaman"},
+			{Skill: "mining", Level: WtMining, Kind: GateAdvised, Note: "server-enforced at the Rock of Dalgroth; no Mining rung trains it"},
+		},
+		XP:     map[string]int{"magic": 15300},
+		Region: "Yanille's Watchtower (the wizard, the bush, the lever), the hills of the Feldip ogres (Og, Grew's island, Toban's camp), Gu'Tanoth (its gates, the rock cake stall, the battlement, the chasm, the six skavid caves, the east gate) and the shamans' enclave", EstMinutes: 90,
+		Source: "defs/watchtower/*.ts; questplan/watchtower.go (content quest_itwatchtower, areas/area_yanille, W13 of docs/quest_plan_2026-10-15.md)",
+		Notes:  "the wizard (the tower's Climbing rocks until he has given his work), the skavid's fingernails from one of forty bushes, then three tribes each for a piece of the relic: Og (a key to Toban's chest in his camp, the gold back), Toban (an adult dragon's bones, which no shop sells and nobody holds: the quest parks before the first risk until the bank or the mule has some) and Grew on his island (a rope, used up, and an Agility 10 swing back; one of Gorad's teeth, a level 68 fought by an explicit attack and priced with the camp's ogre), the three parts to the wizard, the relic shown to the north-west gate's guard, a rock cake from the stall (the trader's distance checked first), the battlement guard asked and paid, the chasm for 20 coins, the City guard's riddle answered with a death rune, the map and a lit light to the six caves (the scared skavid first, then the four talkers' words, then the mad skavid behind the east gate for a bar of gold on a second approach), a cave nightshade for the enclave guard, the wizard, the ogre potion (a guam leaf in a vial of water, jangerberries, ground bat bones: any other order explodes) infused, the six shamans dissolved one by one with it (those beside a chieftain left until they come back; the sixth gives the third crystal), the Rock of Dalgroth for the fourth, all four crystals to the wizard and the lever, which puts the account on the tower's mirror copy to read the scroll. Every walk is through hunters (level 53 ogres, level 81 chieftains): the account never fights back, walks on and eats, the surface chieftains' ground is fenced where a route round it exists, and the visits that cannot be fenced are priced (ogres, Gorad, chieftains) before the account goes. One death parks it for a day.",
+	},
+	"desertrescue": {ID: TouristTrapID, Name: TouristTrapName, QP: 2, Filler: true, MinCombat: 45,
+		// The record states Smithing 20 (the experimental anvil) and Fletching 10 (the feathers), so the ladder never starts the quest below them. They are
+		// listed as advised and not as server gates on purpose: a hard gate must name a training rung the ladder can run
+		// (TestEveryHardGateHasARungThatProducesIt), and the Smithing rung (smithing34, for nails) and the Fletching rung (fletching25) are not run for
+		// one filler. An account under a level is left alone, not trained. The captain (TtCaptainFit) and a rowdy guard fought bare-handed
+		// (TtCampFit) are priced by the shared fight model on the account's levels and the food in its pack, and are the reason for the advised combat
+		// level: an account near the gate clears the guard only on a full kit of sharks, and a weaker one is parked.
+		Gates: []Gate{
+			{Skill: "smithing", Level: TtSmithing, Kind: GateAdvised, Note: "server-enforced at the experimental anvil, held by the Record's requirement; the Smithing rung (for nails) is not run for one filler"},
+			{Skill: "fletching", Level: TtFletching, Kind: GateAdvised, Note: "server-enforced at the prototype dart, held by the Record's requirement; the Fletching rung is not run for one filler"},
+			{Skill: "hitpoints", Level: TtMinHitpoints, Kind: GateAdvised, Note: "the module's own floor for the desert's wolves and the rowdy guards"},
+		},
+		// The reward is 4,650 experience twice in Fletching, Agility, Smithing or Thieving (there is no combat or Magic on offer): the module takes
+		// Thieving, which the slave's lock, the Tribal Totem and the Digsite Quest want and no rung trains.
+		XP:         map[string]int{"thieving": 9300},
+		Region:     "Shantay Pass (Shantay's shop, Irena) / the Kharidian desert (the Mercenary Captain, the mining camp, the Bedabin camp) / the mining camp's mines",
+		EstMinutes: 150,
+		Source:     "defs/touristtrap.ts; questplan/touristtrap.go and touristtrapdecide.go (content quest_desertrescue, area_desert and shantay_pass.rs2, W22 of docs/quest_plan_2026-10-15.md)",
+		Notes:      "Irena south of the pass, then the Mercenary Captain outside the camp's gate (taunted, never attacked cold; 80 hitpoints, a hit of 5, priced on the account's levels and food and parked 3 hours when the model loses) for the Metal key, the gate (no weapon or armour inside, the gear put back at the end), the male slave whose chains are a Thieving roll a try (the third failure puts the account in the cell: a Strength roll for the window bar, four Agility rolls up the rocks, 7 hitpoints a fall; twelve cells in a run park the quest) and whose clothes the account takes for a desert set, the mine doors, the hall and its guard, Al Shabim in the Bedabin camp for a key to Captain Siad's chest, Siad distracted by the bookcase and the sailing talk for the technical plans, the plans shown to Al, the tent's anvil (a bronze bar a try, 38% at Smithing 20) and ten feathers on the tip (31% a try at Fletching 10), the dart to Al for a Tenti pineapple, the pineapple to the cave guard, the guarded cave, an empty barrel and the mine cart (an Agility roll), Ana caught in the barrel, put in the deep cart, found among the lower barrels, on the lift under the winch guard, up the surface winch, on the surface cart and out with a 100 coin bribe to the driver, and Irena's two menus (Thieving twice). The desert's heat is priced in doses of waterskin (three full skins across the pass, a turn for water under three doses at the Bedabin shop or the pass); the stage is read off the journal and the hidden stages 20 to 26 off the pack and the tile. One death parks it for a day; unproven live"},
+	"squire": {ID: KnightsSwordID, Name: KnightsSwordName, QP: 1, Filler: true,
+		// Mining 10 (the rock), Cooking 10 (the redberry pie, twice) and Hitpoints 60 (the dungeon, this module's rule) are held by the Record's
+		// requirements. They are listed as advised, not as server gates, on purpose: a hard gate must name a training rung the ladder can run, no
+		// Mining or Cooking rung is run for one filler, and an account under a level is left alone, not trained.
+		Gates: []Gate{
+			{Skill: "mining", Level: SqMining, Kind: GateAdvised, Note: "server-enforced at the blurite rock, held by the Record's requirement; no Mining rung trains it"},
+			{Skill: "cooking", Level: SqCooking, Kind: GateAdvised, Note: "server-enforced at the pie shell and the range, held by the Record's requirement; no Cooking rung is run for one filler"},
+			{Skill: "hitpoints", Level: SqMinHitpoints, Kind: GateAdvised, Note: "this module's rule for the Asgarnian Ice Dungeon, held by the Record's requirement; the Ice warrior rung of the Stage 5 trainer is gated at the same level"},
+		},
+		XP:     map[string]int{"smithing": 12725},
+		Region: "Falador (the Squire, Sir Vyvin's room) / the Varrock palace (Reldo) / Port Sarim and Rimmington (the pie) / Thurgo at Mudskipper Point and the Asgarnian Ice Dungeon under his cliff", EstMinutes: 45,
+		Source: "defs/knightssword/*.ts; questplan/knightssword.go and knightsdungeon.go (content quest_squire, thurgo.rs2, cupboards.rs2, W22 of docs/quest_plan_2026-10-15.md)",
+		Notes:  "the Squire, Reldo and a redberry pie for Thurgo (a pie dish from the bank or the mule, flour and redberries from Wydin or the mule's berries, a bucket filled at the Rimmington sink and made into pastry dough through the dough menu, a shell, the berries, and the range at Rimmington, which burns about one pie in two at Cooking 10 and returns the dish), then the Squire again for the portrait: Sir Vyvin's cupboard in the White Knights' Castle, searched from its south side only and only while Sir Vyvin is more than one tile from the account; Thurgo asks for two iron bars (the bank or the mule, never smelted) and a blurite ore. The ore is the one danger: Mining 10, loc 2110 at 3067,9581 and 3067,9582, held by two Ice warriors (level 57, hits up to 6) and reached by a 141-tile walk of which about 36 tiles are held by a warrior, one way, in a cave that is single-way combat; every Ice warrior and Ice giant hunts every account of combat 114 and 106 or less. The visit is priced from the account's Defence, Mining and pickaxe (a quarter of an attack a tick over twice the held walk and the 99th percentile of the rolls, scaled up a quarter) and the pack must hold twice that in food; the account never fights; a death there parks it three days. 12,725 Smithing XP"},
 	"itexam": {ID: DigsiteID, Name: DigsiteName, QP: 2, Filler: true,
 		// The levels are the content's own (the workmen's pockets, the winches, the second and third mixes), held by the Record's requirements. They are
 		// listed as advised, not as server gates, on purpose: a hard gate must name a training rung the ladder can run, and no Thieving or Herblore rung
@@ -398,6 +480,49 @@ var LadderFacts = map[string]RungFacts{
 		Region: "Karamja: Tai Bwo Wannai (Timfraku, Tamayu, Tinsay), Brimhaven (Lubufu), the Holy Lake, the east coast (Tiadeche, Zambo's bar, the banana grove) and the Jogre pen", EstMinutes: 110,
 		Source: "defs/tbwt/*.ts; questplan/taibwotrio.go (content quest_tbwt, tbwt_timfraku.rs2, trufitus.rs2 and the fishing, cooking, superheat and monkey scripts, W22 of docs/quest_plan_2026-10-15.md)",
 		Notes:  "Timfraku's job, then four errands: Lubufu (20 raw Karambwanji netted at the Holy Lake in pack-sized rounds, three questions, a Karambwan vessel and 1,500 Fishing XP), Tiadeche (the vessel baited and handed over, his first raw Karambwan), Tamayu (a hunt watched, four doses of agility potion, a spear above bronze smeared with the Karambwan cooked on the jungle fire and ground, the killing hunt), Tinsay (a banana sliced into Zambo's Karamjan rum, a seaweed sandwiched in the skin of a monkey Wind-Bolted down and skinned by Tamayu, a Jogre's bones burnt with Superheat Item, smothered in Karambwanji paste and cooked on the fire) and Tiadeche's manual from a second vessel. THE SHAIKAHAN IS NOT FOUGHT: Tamayu's hunt is a cutscene the account watches; the level 83 beast that roams Tiadeche's ground is priced (a visit with nothing to eat in it) and never attacked. The one fight is a Jogre (level 53, 60 hitpoints, a hit of 7) for the bones it always drops, priced on the account's swing and food before it leaves the mainland. The walks keep out of rectangles round every spider, tribesman, guard dog and Jogre spawn. Parked, with the reason, until the bank or the mule holds four doses of agility potion, a spear above bronze and a nature rune (none does on 19 Oct 2026); Firemaking is 1 fleet-wide, so there is no tinderbox route. A death parks it for a day"},
+	"arrav": {ID: ArravID, Name: ArravName, QP: 1,
+		Region: "Varrock: the palace library, Baraek's stall, the Blue Moon Inn, the Phoenix Gang's cellar and weapon store, the Black Arm Gang's house, the museum", EstMinutes: 90,
+		Source: "questplan/arrav.go, arravpair.go (content quest_blackarmgang, area_varrock reldo, baraek, straven, katrine, tramp, weaponsmaster, curator, king_roald)",
+		Notes:  "TWO ACCOUNTS, one of each gang, named by stage5ThroneChainPartner on both (the first name alphabetically is the Phoenix account). Phoenix: Reldo, the book, Reldo, Baraek (20 coins), Straven, Jonny the Beard's report, Straven, half a shield from the chest. Black Arm: the Tramp, Katrine, the Phoenix key handed over by the partner, two crossbows from the weapon store (the Weaponsmaster, level 23, is fought), Katrine, half a shield from the cupboard. In the museum the Black Arm account gives its half, the Phoenix account hands both to the Curator for two certificates and gives one back, and each takes a certificate to King Roald (600 coins, 1 quest point, no XP). Runs only in the Throne chain tier with a partner; unproven live"},
+	"zanaris": {ID: LostCityID, Name: LostCityName, QP: 3, Filler: true,
+		// Crafting and Woodcutting are the content's own (the knife on the branch, the Dramen tree), Magic the module's (the Varrock Teleport out of
+		// the dungeon: the Wilderness is never walked), all held by the Record's requirements. They are listed as advised, not as server gates, on
+		// purpose: a hard gate must name a training rung the ladder can run, and the Crafting and Woodcutting rungs (Fremennik's 40) are not run for
+		// one filler. An account under a level is left alone, not trained.
+		Gates: []Gate{
+			{Skill: "crafting", Level: LcCrafting, Kind: GateAdvised, Note: "server-enforced at the staff (knife on the branch); held by the Record's requirement"},
+			{Skill: "woodcutting", Level: LcWoodcutting, Kind: GateAdvised, Note: "server-enforced at the Dramen tree; held by the Record's requirement"},
+			{Skill: "magic", Level: LcMinMagic, Kind: GateAdvised, Note: "the module's own: the Varrock Teleport out of the dungeon (the Magic door lands in the Wilderness, which is never walked); held by the Record's requirement"},
+		},
+		Region: "the Lumbridge swamp camp (the warrior, the leprechaun's tree, the shed), Port Sarim's monks, Entrana and the dungeon under it, Varrock (where the teleport out lands)", EstMinutes: 60,
+		Source: "defs/lostcity.ts; questplan/lostcity.go (content quest_zanaris, area_entrana, area_lostcity, W13 of docs/quest_plan_2026-10-15.md)",
+		Notes:  "the warrior of the camp (four menus), an axe for the leprechaun's tree (Shamus, a hundred ticks, shared), then Entrana: Draynor's bank strips every weapon, axe, staff and armour piece (the monks search and refuse them), the monks' ship, the cave monk's one-way ladder; below, an axe is taken from an Entrana zombie (50 in 128 a kill, unarmed, west of the black demons), the corridor to the Dramen tree runs past two greater demons (level 92, hits up to 9; priced for the one pass in and never fought), the tree is chopped and the TREE SPIRIT (level 101, 85 hitpoints, a hit of 10, defence 80, no magic defence) CAST at with the best spell the Magic level casts from runes alone (Fire Blast: 21 casts carried, about 14 needed; meleed at the fleet's levels the model has it lose) and priced on the pack the account sails with, parked 6 hours when the model loses and a day after a lost fight or a death; then a branch, the knife (Crafting 31) for the staff, and a Varrock Teleport out (Magic 25: a fire, three air and a law rune carried down, all on the mule; cast from the tree's stand, so the corridor's second pass is spared; teleports are refused above level 20 of the Wilderness only, and the Entrana dungeon is nowhere near it). The Magic door, which lands in the Wilderness at level 32, is never taken but by an account that cannot cast, as the last resort. The staff worn and the shed's door opened from the tile west of it complete the quest in Zanaris, which the walker leaves by its entrance ladder. One account at a time until the spirit is beaten (one npc, one health bar, one credit); no XP, 3 quest points"},
+	"chompybird": {ID: ChompyID, Name: ChompyName, QP: 2, Filler: true, MinCombat: 40,
+		// The levels are the content's own (the spit and the bow with its arrows want Cooking and Ranged 30, the shafts and tips Fletching 5, the tips Crafting 5)
+		// and the Record states them. They are listed as advised, not as server gates, on purpose: a hard gate must name a training rung the ladder can run
+		// (TestEveryHardGateHasARungThatProducesIt), and no Ranged, Cooking, Fletching or Crafting-5 rung exists. An account under a level is left alone.
+		Gates: []Gate{
+			{Skill: "ranged", Level: ChRanged, Kind: GateAdvised, Note: "server-enforced (the ogre bow and its arrows are wielded at Ranged 30); held by the Record's requirement; no Ranged rung trains it"},
+			{Skill: "cooking", Level: ChCooking, Kind: GateAdvised, Note: "server-enforced (the ogre spit-roast); held by the Record's requirement; no Cooking rung trains it"},
+			{Skill: "fletching", Level: ChFletching, Kind: GateAdvised, Note: "server-enforced (the shafts, the flighting and the arrows); held by the Record's requirement; the Fletching 25 rung is not run for one filler"},
+			{Skill: "crafting", Level: ChCrafting, Kind: GateAdvised, Note: "server-enforced (the chisel on a wolf's bones); held by the Record's requirement"},
+		},
+		XP:     map[string]int{"fletching": 262, "cooking": 1470, "ranged": 735},
+		Region: "Yanille's bank, Rantz's hill and cave in the Feldip Hills (the achey trees, the swamp pool and its toads, the ogre chest, Bugs and Fycie, the spit, the vegetable patches), the Feldip wolves, and Port Sarim's fishing shop for feathers", EstMinutes: 90,
+		Source: "defs/chompybird/*.ts; questplan/bigchompy.go (content quest_chompybird, skill_fletching/ogre_arrows.rs2, W13 of docs/quest_plan_2026-10-15.md)",
+		Notes:  "Rantz asks for six ogre arrows the account makes itself: achey logs cut to 2 to 6 shafts each, four feathers a shaft, a wolf's bones chiselled to 2 to 6 tips each and a tip to a flighted shaft (twelve arrows in all, six to give and six to shoot); the Feldip wolves (level 64, 69 hitpoints, a hit of up to 6) are the only bones the module fetches and the ONE fight, priced by the shared model before the quest is begun and before every kill, parked 6 hours when the model loses. The chest in Rantz's cave (a Strength roll that costs a level of Strength on a miss) gives one pair of bellows to an account that holds or banks none; the bellows are filled at the one bubble the pool's lip reaches and used on a swamp toad (three bloated toads at most); a toad shown to Rantz, then dropped in the clearing south of him, is bait: a chompy comes one time in five every twenty-five ticks, Rantz shoots and misses, and lends the ogre bow. The account shoots a baited chompy (ten hitpoints, no fight back) with the bow and the arrows in the quiver, plucks it and shows Rantz the raw chompy; Bugs and Fycie are asked what they want on it and all six candidate seasonings (potato or onion, equa leaves or cabbage, tomato or doogle leaves) are carried to the spit (Cooking 30; about one roast in six burns, and the seasonings go with it). The weapon the bow replaced is put back at the end; 262 Fletching, 1,470 Cooking and 735 Ranged XP"},
+	"mortton": {ID: MorttonID, Name: MorttonName, QP: 3, Filler: true, MinCombat: 40, Prereqs: []string{NatureSpiritID},
+		// The levels are the content's own (the serum is brewed at Herblore 15, the temple repaired at Crafting 20) and the Record states them. They are advised, not server
+		// gates, for the reason Big Chompy Bird Hunting's are: a hard gate must name a training rung the ladder can run, and no Herblore or Crafting rung exists. An account
+		// under a level is left alone.
+		Gates: []Gate{
+			{Skill: "herblore", Level: MtHerblore, Kind: GateAdvised, Note: "server-enforced (the serum's ashes are added at Herblore 15, a tarromin identified at 11); held by the Record's requirement; no Herblore rung trains it, the Digsite Quest's experience is how the fleet gets there"},
+			{Skill: "crafting", Level: MtCrafting, Kind: GateAdvised, Note: "server-enforced (the temple's walls are repaired at Crafting 20); held by the Record's requirement; no Crafting rung trains it"},
+		},
+		XP:     map[string]int{"crafting": 2000, "herblore": 2000},
+		Region: "Varrock's east bank, the Mort Myre gate and the swamp, Mort'ton (the experiment house, the sink, Razmire's shops, the church, the streets, the Flamtaer temple and the funeral pyres)", EstMinutes: 120,
+		Source: "defs/mortton/*.ts; questplan/shadesofmortton.go (content quest_mortton, game_mortton flamtaer_temple.rs2, mortton_pyre.rs2 and mortton_shades.rs2, W13 of docs/quest_plan_2026-10-15.md)",
+		Notes:  "THE WAY IN is Mort Myre (ghasts of level 25 that rot food, a swamp decay, the gate shut to an account without Nature Spirit started): the pack is stocked and the serum's ashes burnt in Varrock before the crossing, and an account that cannot take two ghasts with four bites of food parks. The diary on the experiment house's shelf is read to its last page; the smashed table gives two tarromin, once per account, brewed (Herblore 12 and 15, a vial of water from the sink) into at most two serums of three doses. A villager is talked to only within the 200 ticks a dose of serum cures him for, so every conversation opens by a dose (the doses a run needs are counted from the stage). Razmire sends the account after five Loar shades (level 40, 38 hitpoints; two at a time are priced, nothing else is fought; the remains drop at the kill), takes two sets of remains and opens his two stores: a hammer, olive oil and the builders' planks, limestone bricks and swamp paste are bought in the same window. Ulsquire is shown a remains and asked about the temple. The Flamtaer temple's fifteen walls are repaired by Crafting rolls from a pool the paste, planks and bricks fill (the temple's own box says when it is dry and the account goes back to Razmire for more), the shades knocking walls down and hunting the builder; the altar is struck with a tinderbox at 10 percent sanctity and olive oil poured on its flame; the sacred oil turns a log into a pyre log; and the pyre is the three actions done back to back (each stage lasts 49 ticks): the pyre log stacked, a remains laid, the pyre lit by a Firemaking roll, which wants level 5 (the quest's own fires and a handful of logs burnt give it). Ulsquire is told. A death at the hunt or the temple parks it for a day"},
 }
 
 // QuestTabName is the quest tab's own spelling of a ladder quest: the key quests.Status and

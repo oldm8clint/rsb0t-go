@@ -85,6 +85,15 @@ func SmithProducts() []Product {
 	return out
 }
 
+// PlateProducts are the platebodies the platebody round hands the mule: every metal's (mastercraftplan.PlateKinds).
+func PlateProducts() []Product {
+	var out []Product
+	for _, p := range mastercraftplan.PlateKinds {
+		out = append(out, Product{ID: p.ID, Name: p.Name})
+	}
+	return out
+}
+
 // SmithProductCounts reads the made products out of a bank reading, by product name.
 func SmithProductCounts(banked []gamestate.SlotItem) map[string]int {
 	return CountProducts(banked, SmithProducts())

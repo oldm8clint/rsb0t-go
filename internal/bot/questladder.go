@@ -2,6 +2,7 @@ package bot
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -135,10 +136,24 @@ var QuestFactories = map[string]func(settings map[string]interface{}) questrunne
 	// Hazeel Cult and the Elemental Workshop (W13): unproven, one quest point each, after the Sea Slug Quest and ahead of Black Knights' Fortress.
 	questplan.HazeelCultID:        func(map[string]interface{}) questrunner.Quest { return questmods.HazeelCult() },
 	questplan.ElementalWorkshopID: func(map[string]interface{}) questrunner.Quest { return questmods.ElementalWorkshop() },
+	// Lost City (W13): unproven, three quest points, ahead of Black Knights' Fortress and the finale; gated on the Tree spirit's odds in its own decide.
+	questplan.LostCityID: func(map[string]interface{}) questrunner.Quest { return questmods.LostCity() },
+	questplan.ArravID:    func(map[string]interface{}) questrunner.Quest { return questmods.ArravQuest() },
+	// The Knight's Sword (W22): unproven, one quest point, the last filler ahead of Black Knights' Fortress and Dragon Slayer; the Asgarnian
+	// Ice Dungeon is priced and refused below 60 hitpoints and combat 58.
+	questplan.KnightsSwordID: func(map[string]interface{}) questrunner.Quest { return questmods.KnightsSword() },
 	// The Digsite Quest (W13): unproven, two quest points, ahead of the Observatory Quest in the owner's ladder.
 	questplan.DigsiteID: func(map[string]interface{}) questrunner.Quest { return questmods.Digsite() },
 	// Tai Bwo Wannai Trio (W22): unproven, the last filler ahead of Black Knights' Fortress and Dragon Slayer.
 	questplan.TaiBwoID: func(map[string]interface{}) questrunner.Quest { return questmods.TaiBwoTrio() },
+	// The Watch Tower (W13): unproven, four quest points and 15,300 Magic experience, ahead of Black Knights' Fortress and Dragon Slayer.
+	questplan.WatchtowerID: func(map[string]interface{}) questrunner.Quest { return questmods.Watchtower() },
+	// The Tourist Trap (W22): unproven, two quest points, after the Elemental Workshop and ahead of Black Knights' Fortress.
+	questplan.TouristTrapID: func(map[string]interface{}) questrunner.Quest { return questmods.TouristTrap() },
+	// Big Chompy Bird Hunting (W22): unproven, two quest points, after the Elemental Workshop and ahead of Black Knights' Fortress.
+	questplan.ChompyID: func(map[string]interface{}) questrunner.Quest { return questmods.BigChompy() },
+	// Shades of Mort'ton (W22): unproven, three quest points, Herblore 15 and Crafting 20, through Mort Myre (Nature Spirit started) to the town and its temple.
+	questplan.MorttonID: func(map[string]interface{}) questrunner.Quest { return questmods.MorttonShades() },
 	questplan.RuneMysteriesID: func(map[string]interface{}) questrunner.Quest {
 		return questrunner.Quest{Module: questplan.RuneMysteries}
 	},
@@ -148,6 +163,64 @@ var QuestFactories = map[string]func(settings map[string]interface{}) questrunne
 	questplan.KQPrayerRungID: func(m map[string]interface{}) questrunner.Quest {
 		return questmods.CowsRung(questplan.KQPrayerRungID, "prayer", max(kqPrayerRungLevel(m), 1))
 	},
+}
+
+// QuestFactoryFor is the factory for quest or rung id: a registered one (QuestFactories), else a generic training rung the
+// trainer catalogue can build (docs/quest_selfsufficiency_plan_2026-10-19.md, 3.2 C, lane N2).
+//
+// A generic rung is named train:<skill>:<level> (questplan.TrainRungID, what a gate between two named rungs and a planned
+// stint ask for) or <skill><level> (mining20, the named style); the catalogue row whose range reaches the level gives the
+// rung family, questmods builds it, and the rung stops at that level: its Done is the base level. A level no row reaches has
+// no factory, and QuestFactoryWhy says which gap names it. Before N2 the ids between the twelve named rungs had no factory at
+// all (TestEveryHardGateHasARungThatProducesIt said "no factory"), the ladder left the rung out, and the quest behind the
+// gate was held for want of a level nothing trained; the exact-level restriction (Crafting 18 and 40, never 19) is gone.
+//
+// Generic rungs are unproven: ProvenQuests does not list them, so only an account that allows unproven quests runs one.
+// A generic Prayer rung draws its own bank and the cows and never asks the mule for bones (questplan.PrayerRungAsksMule
+// names the two rungs that may: the mule's bones are one finite stock).
+func QuestFactoryFor(id string) (func(settings map[string]interface{}) questrunner.Quest, bool) {
+	f, _ := questFactory(id)
+	return f, f != nil
+}
+
+// QuestFactoryWhy is QuestFactoryFor with the reason when there is none: an id that is no rung's, or the named gap that
+// keeps a rung's level from being trained.
+func QuestFactoryWhy(id string) (func(settings map[string]interface{}) questrunner.Quest, string) {
+	return questFactory(id)
+}
+
+func questFactory(id string) (func(settings map[string]interface{}) questrunner.Quest, string) {
+	id = strings.ToLower(strings.TrimSpace(id))
+	if f, ok := QuestFactories[id]; ok {
+		return f, ""
+	}
+	res, why := questplan.SharedCatalogue().ResolveRung(id)
+	if res.ID == "" {
+		return nil, why
+	}
+	// A row that names a family nobody built, or one that does not train its skill, promises a stint nothing can run.
+	if skills, ok := questmods.RungFamilySkills(res.Trainer.Family); !ok || !slices.Contains(skills, res.Skill) {
+		return nil, fmt.Sprintf("trainer %s names rung family %q, which does not train %s", res.Trainer.ID, res.Trainer.Family, res.Skill)
+	}
+	return func(map[string]interface{}) questrunner.Quest {
+		q, _ := questmods.BuildRung(res.Trainer.Family, res.ID, res.Skill, res.Level)
+		return q
+	}, ""
+}
+
+// StintQuest builds the rung of a planned stint (questplan.Stint): the quest that trains t's skill to level under id. The
+// row is the planner's own pick, so a generic id that two rows could reach is built with the row the stint was planned for
+// and not the catalogue's static first. A registered rung (agility25) is its registered factory, so the named rungs run
+// exactly as they always did.
+func StintQuest(t questplan.TrainerSpec, id string, level int, settings map[string]interface{}) (questrunner.Quest, error) {
+	id = strings.ToLower(strings.TrimSpace(id))
+	if f, ok := QuestFactories[id]; ok {
+		return f(settings), nil
+	}
+	if t.Via != questplan.ViaRung {
+		return questrunner.Quest{}, fmt.Errorf("trainer %s is %s, not a rung: nothing to stint", t.ID, t.Via)
+	}
+	return questmods.BuildRung(t.Family, id, t.Skill, level)
 }
 
 func (b *questLadderBot) OnStart(ctx *Context) error {
@@ -194,7 +267,7 @@ func (b *questLadderBot) OnStart(ctx *Context) error {
 		prov.Mule = &donorMuleAsker{ctx: ctx, d: d, mule: mule,
 			post: fisherTileSetting(ctx.Settings, "mulePost", tile.Tile{X: 2655, Z: 3286})}
 	}
-	b.engine = &questrunner.Engine{D: d, Prov: prov, Account: ctx.Username, Build: BuildIdentity()}
+	b.engine = &questrunner.Engine{D: d, Prov: prov, Account: ctx.Username, Build: BuildIdentity(), QuestFor: questRegistry(ctx.Settings)}
 
 	dir := StringSetting(ctx.Settings, "storeDir", "data/scarabswarm-checkpoints")
 	path, err := questrunner.StorePath(dir, ctx.Username)
@@ -279,6 +352,21 @@ var ProvenQuests = map[string]bool{
 	// with a new pair that covers the shed.
 }
 
+// questRegistry is questrunner.Engine.QuestFor for the bots' engines: the registered quest built under id with the
+// settings, so a ladder that does not list a prerequisite with no quest tab (the tail's Scorpion Catcher and Horror from
+// the Deep, whose Barcrawl is in the proven head) reads it through that quest's own Done and not from a tab it does not
+// have. Live 15-19 Oct 2026 it did not: "prerequisite quest not complete: barcrawl" held those two quests on 24 to 51
+// accounts a day. The answer is a quest to read, never one to run: a ladder runs only the quests it was given.
+func questRegistry(settings map[string]interface{}) func(id string) (questrunner.Quest, bool) {
+	return func(id string) (questrunner.Quest, bool) {
+		f, _ := QuestFactoryFor(id)
+		if f == nil {
+			return questrunner.Quest{}, false
+		}
+		return f(settings), true
+	}
+}
+
 // SelectQuests builds the configured quests (setting "quests", default Waterfall), refusing
 // any id that is not registered, and any unproven one unless "allowUnproven" is true (the lab
 // harness's own proofs).
@@ -294,8 +382,11 @@ func SelectQuests(settings map[string]interface{}) ([]questrunner.Quest, error) 
 	var qs []questrunner.Quest
 	for _, raw := range ids {
 		id := strings.ToLower(strings.TrimSpace(raw))
-		f := QuestFactories[id]
+		f, why := QuestFactoryWhy(id)
 		if f == nil {
+			if _, _, rung := questplan.ParseRungID(id); rung && why != "" {
+				return nil, fmt.Errorf("questladder: no rung %q: %s", raw, why)
+			}
 			return nil, fmt.Errorf("questladder: no quest %q (have %v)", raw, questFactoryIDs())
 		}
 		if !ProvenQuests[id] && !allow {

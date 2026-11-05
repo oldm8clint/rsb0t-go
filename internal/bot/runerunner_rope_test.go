@@ -40,7 +40,7 @@ func TestRopeRoundIsInTheRingAndTheStartLine(t *testing.T) {
 	if !strings.Contains(r.log(), "sites=Gerrant,Lowe,Hickton,PortKhazard,Aemad,Ned") || !strings.Contains(r.log(), "Rope") {
 		t.Errorf("start line\n%s", r.log())
 	}
-	if got := strings.Join(r.b.set.DeliverNotedList, ","); got != "Rope" {
+	if got := strings.Join(r.b.set.DeliverNotedList, ","); got != "Rope,Vial of water" {
 		t.Errorf("deliverNoted %q", got)
 	}
 }

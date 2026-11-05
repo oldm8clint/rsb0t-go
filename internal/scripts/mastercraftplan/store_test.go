@@ -333,13 +333,13 @@ func TestDecideStoreAfterPearlsBeforeTheLaterRounds(t *testing.T) {
 	}
 	// The chest round is after it.
 	c := s
-	c.Stock = stockMap(map[string]int{ChestKeyItem: 400})
-	if d := DecideWithChest(set, c, ChestInput{}); d.Mode != ModeStore {
-		t.Fatalf("store before the chest: %+v", d)
+	c.Stock = stockMap(map[string]int{ChestKeyItem: 1000})
+	if d := DecideWithChest(set, c, ChestInput{}); d.Mode != ModeChest {
+		t.Fatalf("the chest before a new store round: %+v", d)
 	}
 	c.Store = StoreInput{}
 	if d := DecideWithChest(set, c, ChestInput{}); d.Mode != ModeChest {
-		t.Fatalf("the chest after the rest: %+v", d)
+		t.Fatalf("the chest with nothing else due: %+v", d)
 	}
 }
 

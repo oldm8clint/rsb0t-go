@@ -49,7 +49,13 @@ func init() {
 	knownKeys[KeyTrawlerFoodHigh] = true
 }
 
-// THE FOOD SCHEDULE (a user request: "master wont need to run trawler full time and we should automate a schedule to trawl
+// THE RAW FISH TRIGGER (a user request, replacing the food schedule below): "trawler runs when the mule is out of Raw sea
+// turtle, Raw manta ray and Raw shark; 3 hours, to restock raws". The food counted is those three RAW fish on the mule's bank
+// (internal/bot trawlerFoods); a block starts while they total under craftTrawlerFoodLow (default 1: all three are out), and
+// runs craftTrawlerBlockMinutes (default 180). craftTrawlerFoodHigh 0 (the default) never ends a block early; a mule bank that is
+// not published does not start one (the old schedule ran blocks back to back then).
+//
+// THE FOOD SCHEDULE it replaced (a user request: "master wont need to run trawler full time and we should automate a schedule to trawl
 // based on food consumption food cooked etc", which replaces that day's "Drop the rests"): the trawler is the fleet's food, so
 // a block runs while the mule's food runs short. Food is the mule's published bank (the peer board): the top tier the trawler
 // restocks, Shark, Sea turtle and Manta ray, cooked or raw, a piece each (internal/bot trawlerFoods; every food counted 9.7M
@@ -62,8 +68,8 @@ func init() {
 // the low mark of 5,000 is about two hours of a Queen wave's eating, which a block starts against; without waves the stock
 // seldom falls that far and master does his other rounds. The high mark mostly ends a block a market buy has made unneeded.
 const (
-	DefaultTrawlerFoodLow  = 5000
-	DefaultTrawlerFoodHigh = 20000
+	DefaultTrawlerFoodLow  = 1
+	DefaultTrawlerFoodHigh = 0
 )
 
 // DefaultTrawlerQuorum is the crew a round waits for.
@@ -123,13 +129,22 @@ type TrawlerLedger struct {
 	RestCrafted bool      `json:"restCrafted,omitempty"`
 }
 
-// TrawlerBlockLen and TrawlerRestLen are the owner's cycle: two-hour blocks aboard, back to back with no rest between them
-// (a user request: "Drop the rests", for the trawler's experience an hour; the rest of up to two hours of crafting or
-// ScarabSwarm halved it). A block still ends at its two hours, so each block's own experience an hour is logged.
+// TrawlerBlockLen and TrawlerRestLen are the older cycle's constants, kept as the fallbacks: two-hour blocks aboard, back to back
+// with no rest (a user request: "Drop the rests"). Since 5 Nov 2026 the block is craftTrawlerBlockMinutes (3 hours), started by
+// the mule being out of raw fish, and a rest of craftTrawlerRestMinutes (default 60) after it lets every due round have a turn: the
+// mule's cooks eat raw fish faster than a block brings them, so the trigger alone could hold the account aboard for ever.
 const (
 	TrawlerBlockLen = 2 * time.Hour
-	TrawlerRestLen  = 0
+	TrawlerRestLen  = 0 // the rest is now Sched.TrawlerRest
 )
+
+// trawlerBlockLen is the block's length: craftTrawlerBlockMinutes (3 hours), TrawlerBlockLen when the setting is unset.
+func trawlerBlockLen(set Settings) time.Duration {
+	if set.Sched.TrawlerBlock > 0 {
+		return set.Sched.TrawlerBlock
+	}
+	return TrawlerBlockLen
+}
 
 // TrawlerBlockOn reports whether a trawler block runs at now: the round is on, Fishing is under 200M XP and no rest is
 // under way.
@@ -140,6 +155,9 @@ func TrawlerBlockOn(set Settings, in TrawlerInput, led *Ledger, now time.Time) b
 	if led != nil && !led.Trawler.BlockStart.IsZero() {
 		return true // a block under way runs to its end (TrawlerCycleBefore)
 	}
+	if led != nil && led.Trawler.resting(now) {
+		return false // the rest after a block (craftTrawlerRestMinutes): the other rounds are due their turn
+	}
 	if foodShort, ok := trawlerFoodShort(set, in); ok {
 		return foodShort
 	}
@@ -149,15 +167,18 @@ func TrawlerBlockOn(set Settings, in TrawlerInput, led *Ledger, now time.Time) b
 // trawlerFoodShort reports whether the food schedule starts a block: the mule's food under the low mark. ok is false with the
 // schedule off or the food not read, and the blocks then follow the rest timer (back to back).
 func trawlerFoodShort(set Settings, in TrawlerInput) (short, ok bool) {
-	if set.TrawlerFoodLow <= 0 || !in.FoodKnown {
+	if set.TrawlerFoodLow <= 0 {
 		return false, false
+	}
+	if !in.FoodKnown {
+		return false, true // no published bank: no new block (the raw fish trigger needs the reading)
 	}
 	return in.Food < set.TrawlerFoodLow, true
 }
 
 // trawlerFoodFull reports whether the food schedule ends a block early: the mule's food at the high mark.
 func trawlerFoodFull(set Settings, in TrawlerInput) bool {
-	return set.TrawlerFoodLow > 0 && in.FoodKnown && in.Food >= set.TrawlerFoodHigh
+	return set.TrawlerFoodLow > 0 && set.TrawlerFoodHigh > 0 && in.FoodKnown && in.Food >= set.TrawlerFoodHigh
 }
 
 // resting reports whether a rest is under way: its two hours are not up. A crafting round does not stretch it: the round
@@ -168,10 +189,10 @@ func (t TrawlerLedger) resting(now time.Time) bool { return now.Before(t.RestUnt
 // catch to claim): the rest starts. It reports whether the ledger changed.
 func TrawlerCycleBefore(set Settings, in TrawlerInput, led *Ledger, now time.Time) bool {
 	t := &led.Trawler
-	if t.BlockStart.IsZero() || (now.Sub(t.BlockStart) < TrawlerBlockLen && !trawlerFoodFull(set, in)) || t.Claim || (in.HereKnown && trawlerplan.OnBoat(in.Here)) {
+	if t.BlockStart.IsZero() || (now.Sub(t.BlockStart) < trawlerBlockLen(set) && !trawlerFoodFull(set, in)) || t.Claim || (in.HereKnown && trawlerplan.OnBoat(in.Here)) {
 		return false
 	}
-	t.BlockStart, t.RestUntil, t.RestCrafted = time.Time{}, now.Add(TrawlerRestLen), false
+	t.BlockStart, t.RestUntil, t.RestCrafted = time.Time{}, now.Add(set.Sched.TrawlerRest), false
 	return true
 }
 
@@ -223,19 +244,22 @@ func decideTrawler(set Settings, s Snapshot, led *Ledger) (Decision, string) {
 		return Decision{}, "trawler: Fishing " + strconv.Itoa(in.FishingLevel) + " is under the " + strconv.Itoa(TrawlerFishing) + " the claim needs"
 	case !TrawlerBlockOn(set, in, led, s.Now):
 		if _, ok := trawlerFoodShort(set, in); ok {
-			return Decision{}, "trawler: the mule holds " + strconv.Itoa(in.Food) + " food, not under the " + strconv.Itoa(set.TrawlerFoodLow) + " that starts a block"
+			if !in.FoodKnown {
+				return Decision{}, "trawler: the mule's bank is not published, so its raw fish are not read"
+			}
+			return Decision{}, "trawler: the mule holds " + strconv.Itoa(in.Food) + " Raw sea turtle, Raw manta ray and Raw shark, not under the " + strconv.Itoa(set.TrawlerFoodLow) + " that starts a block"
 		}
 		return Decision{}, "trawler: resting until " + led.Trawler.RestUntil.Format("15:04") + " (crafting first, else ScarabSwarm)"
 	}
 	if until, held := led.BackedOff(ModeTrawler, s.Now); held {
 		return Decision{}, "trawler rounds are backing off until " + until.Format("15:04") + " after " + strconv.Itoa(led.Fails(ModeTrawler)) + " failed in a row"
 	}
-	why := "the two-hour trawler block is on: " + strconv.Itoa(in.Crew) + " crew in the Port Khazard lobby"
+	why := "the " + trawlerBlockLen(set).String() + " trawler block is on: " + strconv.Itoa(in.Crew) + " crew in the Port Khazard lobby"
 	if in.FoodKnown && set.TrawlerFoodLow > 0 {
-		why += ", the mule holding " + strconv.Itoa(in.Food) + " food (a block under " + strconv.Itoa(set.TrawlerFoodLow) + ", done at " + strconv.Itoa(set.TrawlerFoodHigh) + ")"
+		why += ", the mule holding " + strconv.Itoa(in.Food) + " raw sea turtle, manta ray and shark (a block under " + strconv.Itoa(set.TrawlerFoodLow) + ")"
 	}
 	if !led.Trawler.BlockStart.IsZero() {
-		why += ", " + s.Now.Sub(led.Trawler.BlockStart).Round(time.Minute).String() + " of " + TrawlerBlockLen.String() + " played"
+		why += ", " + s.Now.Sub(led.Trawler.BlockStart).Round(time.Minute).String() + " of " + trawlerBlockLen(set).String() + " played"
 	}
 	// Continue: the next round follows this one straight on (Chain).
 	return Decision{Mode: ModeTrawler, Continue: true, Why: why}, ""

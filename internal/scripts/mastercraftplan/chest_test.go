@@ -23,22 +23,22 @@ func chestSnap(now time.Time, keys int) Snapshot {
 
 // The trigger is the owner's 400 keys in the mule's bank (6 Oct 2026); the mule's own key gate stays
 // at more than 100.
-func TestChestTriggerIsFourHundred(t *testing.T) {
+func TestChestTriggerIsAThousand(t *testing.T) {
 	threshold, floor := ChestKeyThreshold, orderplan.KeysFloor
 	if threshold != 100 || floor != threshold {
 		t.Fatalf("threshold %d, mule floor %d", threshold, floor)
 	}
-	if ChestReady(399) || !ChestReady(400) {
-		t.Fatal("ChestReady must be 400 or more")
+	if ChestReadyFor(DefaultSettings(), 999) || !ChestReadyFor(DefaultSettings(), 1000) {
+		t.Fatal("ChestReadyFor must be 1000 or more (a user request)")
 	}
 	now := time.Date(2026, 10, 4, 12, 0, 0, 0, time.UTC)
 	set := orderSettings()
-	if d := DecideWithChest(set, chestSnap(now, 399), ChestInput{}); d.Mode != ModeSwarm || !strings.Contains(d.Why, "under the threshold 400") {
-		t.Errorf("399 keys: %+v", d)
+	if d := DecideWithChest(set, chestSnap(now, 999), ChestInput{}); d.Mode != ModeSwarm || !strings.Contains(d.Why, "under the threshold 1000") {
+		t.Errorf("999 keys: %+v", d)
 	}
-	d := DecideWithChest(set, chestSnap(now, 400), ChestInput{})
+	d := DecideWithChest(set, chestSnap(now, 1000), ChestInput{})
 	if d.Mode != ModeChest || d.Resume {
-		t.Errorf("400 keys: %+v", d)
+		t.Errorf("1000 keys: %+v", d)
 	}
 	set.CrystalChest = false
 	if d := DecideWithChest(set, chestSnap(now, 5000), ChestInput{}); d.Mode != ModeSwarm {
@@ -46,26 +46,37 @@ func TestChestTriggerIsFourHundred(t *testing.T) {
 	}
 }
 
-// Every other round comes first: the chest round runs only where ScarabSwarm would.
-func TestChestRunsAfterEveryOtherRound(t *testing.T) {
+// The chest is a scheduled round (a user request): at 1,000 keys it comes ahead of every NEW round but the trawler, a
+// hand-over and a round under way.
+func TestChestComesAheadOfNewRoundsButNotTheTrawlerOrAHandOver(t *testing.T) {
 	now := time.Date(2026, 10, 4, 12, 0, 0, 0, time.UTC)
 	set := orderSettings()
-	s := chestSnap(now, 400)
-	s.Stock = stockMap(map[string]int{ChestKeyItem: 400, "Uncut sapphire": 600, "Chisel": 1, "Maple longbow": 500, "Bow string": 500})
-	if d := DecideWithChest(set, s, ChestInput{}); d.Mode != ModeGems {
-		t.Errorf("gems first: %+v", d)
+	s := chestSnap(now, 1000)
+	s.Stock = stockMap(map[string]int{ChestKeyItem: 1000, "Uncut sapphire": 600, "Chisel": 1, "Maple longbow": 500, "Bow string": 500})
+	if d := DecideWithChest(set, s, ChestInput{}); d.Mode != ModeChest {
+		t.Errorf("the chest before a new gem round: %+v", d)
 	}
 	set.GemCutting = false
-	if d := DecideWithChest(set, s, ChestInput{}); d.Mode != ModeBows {
-		t.Errorf("bows before the chest: %+v", d)
-	}
-	set.BowStringing = false
 	if d := DecideWithChest(set, s, ChestInput{}); d.Mode != ModeChest {
-		t.Errorf("then the chest: %+v", d)
+		t.Errorf("the chest before a new bow round: %+v", d)
 	}
+	// 999 keys: the gem round has its turn, and the chest waits.
+	set.GemCutting = true
+	s.Stock = stockMap(map[string]int{ChestKeyItem: 999, "Uncut sapphire": 600, "Chisel": 1})
+	if d := DecideWithChest(set, s, ChestInput{}); d.Mode != ModeGems {
+		t.Errorf("under the threshold the gems go: %+v", d)
+	}
+	s.Stock = stockMap(map[string]int{ChestKeyItem: 1000, "Uncut sapphire": 600, "Chisel": 1})
 	s.Ledger.PendingDeliver = true
 	if d := DecideWithChest(set, s, ChestInput{}); d.Mode != ModeDeliver {
 		t.Errorf("a pending hand-over first: %+v", d)
+	}
+	s.Ledger.PendingDeliver = false
+	ts := set
+	ts.Trawler = true
+	s.Trawler.Food, s.Trawler.FoodKnown = 0, true
+	if d := DecideWithChest(ts, s, ChestInput{}); d.Mode != ModeTrawler {
+		t.Errorf("the trawler block first: %+v", d)
 	}
 }
 

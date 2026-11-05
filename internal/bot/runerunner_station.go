@@ -214,10 +214,21 @@ func (b *runeRunnerBot) rotationHopStation(ctx *Context, s runerunnerplan.Statio
 		for _, st := range shops {
 			worth += b.worth(ctx, st.Site, st.World)
 		}
-		if worth < b.set.HopMinGain {
-			skip(fmt.Sprintf("world %d expects %d runes at %s, under hopMinGain %d", s.World, worth,
-				runerunnerplan.PlanString(shops, 0), b.set.HopMinGain))
+		// The block's ammo stops count too (runerunnerplan/hopworth.go): Aemad's and Port Khazard's shelves were left on two worlds of three
+		// because the Lundail runes beside them were worth nothing.
+		var stops []runerunnerplan.AmmoHopStop
+		for _, st := range runerunnerplan.BlockAmmo(b.st.Ring, b.st.Cursor) {
+			site, ok := runerunnerplan.AmmoSiteFor(st.Site)
+			if !ok {
+				continue
+			}
+			stops = append(stops, runerunnerplan.AmmoHopStop{Key: st.Key(), Coins: b.ammoStationCost(ctx, st, now), MinVisit: site.MinVisit(b.set.AmmoMinVisitCoins)})
+		}
+		if ok, why := runerunnerplan.HopWorthy(worth, b.set.HopMinGain, stops); !ok {
+			skip(fmt.Sprintf("world %d at %s: %s", s.World, runerunnerplan.PlanString(shops, 0), why))
 			return
+		} else if worth < b.set.HopMinGain {
+			b.logf(ctx, "hop for ammo: world %d: %s", s.World, why)
 		}
 	} else if stops := runerunnerplan.BlockAmmo(b.st.Ring, b.st.Cursor); len(stops) > 0 && ctx.World() != s.World {
 		// A block of ammo stops alone (Hickton on a world the circuit does not end on) is hopped to only for what its shelf is

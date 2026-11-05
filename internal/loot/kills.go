@@ -173,6 +173,9 @@ func (k *KillLog) find(x, z, level int, now time.Time) (src Source, near, ok boo
 		if now.Sub(kill.at) > KillWindow {
 			break
 		}
+		if DropsNothing(kill.src) {
+			continue // a pile cannot be the loot of an npc that drops nothing (nodrop.go)
+		}
 		if !ok {
 			src, ok = kill.src, true
 		}
@@ -199,8 +202,10 @@ func (k *KillLog) Latest() (Source, bool) {
 	}
 	k.mu.Lock()
 	defer k.mu.Unlock()
-	if len(k.recent) == 0 {
-		return Source{}, false
+	for i := len(k.recent) - 1; i >= 0; i-- {
+		if !DropsNothing(k.recent[i].src) {
+			return k.recent[i].src, true
+		}
 	}
-	return k.recent[len(k.recent)-1].src, true
+	return Source{}, false
 }

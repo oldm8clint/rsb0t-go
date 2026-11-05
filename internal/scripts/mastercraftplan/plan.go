@@ -70,6 +70,10 @@ const (
 	ModeSmith Mode = "smith"
 	// ModeCannonballs smelts Steel bars into cannonballs at the Falador furnace and hands the balls to the mule (cannonballs.go).
 	ModeCannonballs Mode = "cannonballs"
+	// ModePlatebody smiths the best bar's platebodies at Varrock west for an hour (platebody.go).
+	ModePlatebody Mode = "platebody"
+	// ModeStaves attaches Fire orbs to Battlestaves at the mule's post (staves.go).
+	ModeStaves Mode = "staves"
 )
 
 // Stock is the mule's published bank count for an item by name; ok false when it has not
@@ -302,6 +306,16 @@ type Ledger struct {
 	Trawler TrawlerLedger `json:"trawler,omitempty"`
 	// Cannon is the cannonball round's memory (cannonballs.go).
 	Cannon CannonLedger `json:"cannon,omitempty"`
+	// CannonRun is the cannon run round's memory (cannonrun.go).
+	CannonRun CannonRunLedger `json:"cannonRun,omitempty"`
+	// Plate is the platebody round's memory (platebody.go).
+	Plate PlateLedger `json:"plate,omitempty"`
+	// Staves is the Fire battlestaff round's memory (staves.go).
+	Staves StavesLedger `json:"staves,omitempty"`
+	// Bones is the bone-burying round's memory (bones.go).
+	Bones BonesLedger `json:"bones,omitempty"`
+	// Sched is the round schedule's clock-based memory (schedule.go).
+	Sched ScheduleLedger `json:"sched,omitempty"`
 	// Lifetime counters, for the log.
 	GemRounds  int `json:"gemRounds,omitempty"`
 	BowRounds  int `json:"bowRounds,omitempty"`
@@ -693,7 +707,10 @@ type Snapshot struct {
 	// bank by item name (ores, coal, runes), nil when never seen.
 	MagicLevel, SmithingLevel int
 	FireStaff                 bool
-	OwnSuperheat              SuperheatStock
+	// GoldGauntlets is whether the Goldsmith gauntlets are worn, in the pack or in this account's bank: the
+	// superheat round plans Gold bars only then.
+	GoldGauntlets bool
+	OwnSuperheat  SuperheatStock
 	// OwnSmith is this account's bank's bars by item name for the anvil round (nil: never seen).
 	OwnSmith SmithStock
 	// OwnArrows is the arrow round's items in this account's bank.
@@ -725,6 +742,15 @@ type Snapshot struct {
 	Trawler TrawlerInput
 	// Cannon is the cannonball round's reading (cannonballs.go).
 	Cannon CannonballInput
+	// CannonRun is the cannon run round's reading (cannonrun.go).
+	CannonRun CannonRunInput
+	// OwnStaves and OwnOrbs are the Battlestaff and Fire orb in this account's bank (staves.go; 0 when unread).
+	OwnStaves, OwnOrbs int
+	// PrayerXP is this account's Prayer experience (0 until read) and OwnBones the bones in its bank by kind (bones.go).
+	PrayerXP int
+	OwnBones map[string]int
+	// Sched is the round schedule's reading of the fleet's banks (schedule.go).
+	Sched ScheduleInput
 }
 
 // Decision is what the account does next and why.
@@ -743,6 +769,16 @@ type Decision struct {
 	Smith SmithPlan
 	// Cannon is a cannonball round's plan.
 	Cannon CannonballPlan
+	// CannonRun is a cannon run round's plan.
+	CannonRun CannonRunPlan
+	// Plate is a platebody round's plan.
+	Plate PlatePlan
+	// Heat is a superheat round's phase (schedule.go).
+	Heat HeatPhase
+	// Staves is a Fire battlestaff round's plan.
+	Staves StavesPlan
+	// Bones is a bone-burying round's plan.
+	Bones BonePlan
 	// Jewellery is a new jewellery batch's plan (a resume has none: the ledger's batch carries on).
 	Jewellery JewelleryPlan
 	// Kind is what a jewellery round makes (a new batch's, or the kind of the own-bank items a resume
@@ -948,6 +984,21 @@ func Decide(set Settings, s Snapshot) Decision {
 			pearlWhy = r.Why
 		}
 	}
+	// The Fire battlestaff round (staves.go), after the other fast Crafting rounds (gems, bows, pearls): the mule's Battlestaff and
+	// Fire orb both at the threshold.
+	var stavesWhy string
+	if train(set.Staves, ModeStaves, &stavesWhy) {
+		why, held := blocked(ModeStaves, "staves", led.Staves.PauseUntil)
+		sp, ok := StavesReady(set, s.CraftingLevel, s.Stock, s.OwnStaves, s.OwnOrbs)
+		switch {
+		case held:
+			stavesWhy = why
+		case ok:
+			return Decision{Mode: ModeStaves, Staves: sp, Resume: sp.Resume, Why: sp.Why}
+		default:
+			stavesWhy = "staves: " + sp.Why
+		}
+	}
 	// The storage round (store.go), after gems, bows and pearls and before the later rounds: the mule's
 	// bank is nearly full of rows the fleet does not use, and this account's is nearly empty.
 	var storeWhy string
@@ -1005,15 +1056,57 @@ func Decide(set Settings, s Snapshot) Decision {
 		}
 	}
 	if train(set.Superheat, ModeSuperheat, &heatWhy) {
-		why, held := blocked(ModeSuperheat, "superheat", led.SuperheatPauseUntil)
-		p, ok, resume, w := SuperheatReady(set, s.MagicLevel, s.SmithingLevel, s.Stock, s.OwnSuperheat, s.FireStaff)
+		// Steel first, then Mithril (schedule.go); the Adamantite batch is the last round of all, below.
+		if d, w := decideHeat(set, s, led, false); d.Mode == ModeSuperheat {
+			return d
+		} else {
+			heatWhy = w
+		}
+	}
+	// The platebody round (platebody.go) right after the superheat round it follows: Adamantite ore gone, the highest bar first,
+	// an hour a round. Before the cannonball and anvil rounds: the anvil round (Steel > 8000) would turn these bars into arrowtips.
+	var plateWhy string
+	if train(set.Platebody, ModePlatebody, &plateWhy) {
+		why, held := blocked(ModePlatebody, "platebody", led.Plate.PauseUntil)
+		pp, ok := PlatebodyReady(set, s.SmithingLevel, led.Plate, s.Now, s.Stock, s.OwnSmith)
 		switch {
 		case held:
-			heatWhy = why
+			plateWhy = why
 		case ok:
-			return Decision{Mode: ModeSuperheat, Superheat: p, Resume: resume, Why: w}
+			return Decision{Mode: ModePlatebody, Plate: pp, Resume: pp.Resume, Why: pp.Why}
 		default:
-			heatWhy = "superheat: " + w
+			plateWhy = "platebody: " + pp.Why
+		}
+	}
+	// The bone-burying round (bones.go), a batch round in the rotation: the mule holds craftBonesMinStock bones, or this account's bank
+	// holds a load from a round cut short. Not held by the skill goal: Prayer is run to the 200 million cap (the owner's aim).
+	var boneWhy string
+	if set.Bones {
+		why, held := blocked(ModeBones, "bones", led.Bones.PauseUntil)
+		bp, ok := BonesReady(set, s.PrayerXP, s.Stock, s.OwnBones)
+		switch {
+		case held:
+			boneWhy = why
+		case ok:
+			return Decision{Mode: ModeBones, Bones: bp, Resume: bp.Resume, Why: bp.Why}
+		default:
+			boneWhy = "bones: " + bp.Why
+		}
+	}
+	// The cannon run round (cannonrun.go): a Ranged stint with a cannon at the Khazard battlefield, a batch round in the rotation. It is
+	// triggered by the Cannonballs available (the mule's and this account's, 10,000), runs until 10,000 are used, and a stint is an hour, so the
+	// rotation gives the other batch rounds their turns between its stints.
+	var cannonRunWhy string
+	if set.CannonRun.Start > 0 {
+		why, held := blocked(ModeCannonRun, "cannon run", led.CannonRun.PauseUntil)
+		rp, ok := CannonRunReady(set, s, led.CannonRun)
+		switch {
+		case held:
+			cannonRunWhy = why
+		case ok:
+			return Decision{Mode: ModeCannonRun, CannonRun: rp, Resume: rp.Resume || rp.Errand == ErrandRecover, Why: rp.Why}
+		default:
+			cannonRunWhy = "cannon run: " + rp.Why
 		}
 	}
 	// The cannonball round (cannonballs.go) after the superheat round that makes its Steel bars and BEFORE the anvil round, which
@@ -1054,15 +1147,30 @@ func Decide(set Settings, s Snapshot) Decision {
 		switch {
 		case held:
 			herbWhy = why
+		case ok && !resume && !led.Sched.Due(KeyHerbRound, s.Now, set.Sched.HerbEvery):
+			// Herbs about once every 24 hours (a user request).
+			herbWhy = "herbs: the last round ended " + led.Sched.LastEnd[KeyHerbRound].Format("15:04 2 Jan") + ", the next is due " + led.Sched.LastEnd[KeyHerbRound].Add(set.Sched.HerbEvery).Format("15:04 2 Jan")
 		case ok:
 			return Decision{Mode: ModeHerbs, Resume: resume, Why: w}
 		default:
 			herbWhy = "herbs: " + w
 		}
 	}
-	parts := []string{nonEmpty(gemWhy, "gems off"), nonEmpty(pearlWhy, "pearls off"), nonEmpty(bowWhy, "bows off"),
+	// The Adamantite batch is the LAST round of all (a user request: "only after all other tasks are done and there is no ore
+	// left to create"): nothing above is due, so the Adamantite and Runite ore is superheated for an hour, then left alone for
+	// craftPauseAdamantMinutes.
+	if set.Superheat {
+		if _, held := AtGoal(set, s, ModeSuperheat); !held {
+			if d, w := decideHeat(set, s, led, true); d.Mode == ModeSuperheat {
+				return d
+			} else if w != "" {
+				heatWhy = nonEmpty(heatWhy, "") + "; " + w
+			}
+		}
+	}
+	parts := []string{nonEmpty(gemWhy, "gems off"), nonEmpty(pearlWhy, "pearls off"), nonEmpty(bowWhy, "bows off"), nonEmpty(stavesWhy, "staves off"),
 		nonEmpty(storeWhy, "store off"),
-		nonEmpty(shopWhy, "shop off"), nonEmpty(heatWhy, "superheat off"), nonEmpty(cannonWhy, "cannonballs off"), nonEmpty(smithWhy, "smith off"), nonEmpty(arrowWhy, "arrows off"), nonEmpty(herbWhy, "herbs off"),
+		nonEmpty(shopWhy, "shop off"), nonEmpty(heatWhy, "superheat off"), nonEmpty(plateWhy, "platebody off"), nonEmpty(boneWhy, "bones off"), nonEmpty(cannonRunWhy, "cannon run off"), nonEmpty(cannonWhy, "cannonballs off"), nonEmpty(smithWhy, "smith off"), nonEmpty(arrowWhy, "arrows off"), nonEmpty(herbWhy, "herbs off"),
 		nonEmpty(jewelWhy, "jewellery off")}
 	if runeWhy != "" {
 		parts = append(parts, runeWhy)

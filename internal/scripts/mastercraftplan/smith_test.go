@@ -221,6 +221,12 @@ func TestSuperheatMakesSteelAndUpOnly(t *testing.T) {
 		t.Errorf("bars %s", got)
 	}
 	set.SuperheatGold = true
+	for _, b := range SuperheatBars(set, 99) {
+		if b.Gold {
+			t.Error("gold with no gauntlets held")
+		}
+	}
+	set.GauntletsHeld = true
 	names = nil
 	for _, b := range SuperheatBars(set, 99) {
 		names = append(names, b.Name)

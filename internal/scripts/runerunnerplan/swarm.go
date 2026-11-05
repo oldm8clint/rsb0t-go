@@ -30,6 +30,12 @@ const (
 	// 700, so 1,500 is roughly one good shop's worth across the whole circuit.
 	DefaultSwarmResumeRunes = 1500
 	MaxSwarmResumeRunes     = 100000
+	// DefaultSwarmReadyPercent is the share of a full-shelf circuit's purchase the next circuit must expect (a user request: "time how
+	// long it takes for the shops to restock before starting another shopping round"). Measured the same day: a shelf regrows at a fixed
+	// rate (Betty's runes one per 10 ticks, a thousand in 100 minutes) and acct's rounds, 43-57 minutes, ran back to back, so the
+	// stock a round found was only what had regrown since the last one. Waiting for 60% buys the same runes an hour and gives the
+	// difference to ScarabSwarm; 100 would let the shelves cap and lose stock.
+	DefaultSwarmReadyPercent = 60
 )
 
 // SwarmCheck is what the switch decisions read.
@@ -42,6 +48,34 @@ type SwarmCheck struct {
 	CircuitWorth int
 	// Resume is the swarmResumeRunes setting.
 	Resume int
+	// FullWorth is what the same circuit would buy with every shelf regrown to its base (the board's estimate a day on), ReadyPercent the
+	// swarmReadyPercent setting: the circuit is not walked until it would buy that share of FullWorth. MuleShort is the mule being out
+	// of a scarce rune, which halves the share.
+	FullWorth, ReadyPercent int
+	MuleShort               bool
+}
+
+// Target is the circuit worth the runner leaves ScarabSwarm for (or stays on the circuit at): swarmResumeRunes, or ReadyPercent of
+// FullWorth when that is more -- half of it while the mule is short of a scarce rune, which is a reason to come back sooner but not to
+// walk a circuit that has barely regrown (the stock a shelf yields is the same, walked or not).
+func (c SwarmCheck) Target() int {
+	t := c.Resume
+	if c.ReadyPercent > 0 {
+		pct := c.ReadyPercent
+		if c.MuleShort {
+			pct /= 2
+		}
+		t = max(t, c.FullWorth*pct/100)
+	}
+	return t
+}
+
+// targetWhy words the target for a log line: the setting alone, or the share of full shelves that raised it.
+func (c SwarmCheck) targetWhy() string {
+	if t := c.Target(); t > c.Resume {
+		return fmt.Sprintf("%d (%d%% of the %d a full-shelf circuit buys; swarmResumeRunes %d)", t, c.ReadyPercent, c.FullWorth, c.Resume)
+	}
+	return fmt.Sprintf("swarmResumeRunes %d", c.Resume)
 }
 
 // SwarmAfterRound says whether a rotation round that has just ended hands over and switches to
@@ -52,10 +86,10 @@ func SwarmAfterRound(c SwarmCheck) (bool, string) {
 		return false, "swarmWhileWaiting is off"
 	case !c.Rotation:
 		return false, "the classic ring does not switch"
-	case c.CircuitWorth >= c.Resume:
-		return false, fmt.Sprintf("the next circuit expects %d runes (swarmResumeRunes %d)", c.CircuitWorth, c.Resume)
+	case c.CircuitWorth >= c.Target():
+		return false, fmt.Sprintf("the next circuit expects %d runes (%s)", c.CircuitWorth, c.targetWhy())
 	}
-	return true, fmt.Sprintf("the next circuit expects %d runes, under swarmResumeRunes %d", c.CircuitWorth, c.Resume)
+	return true, fmt.Sprintf("the next circuit expects %d runes, under %s", c.CircuitWorth, c.targetWhy())
 }
 
 // SwarmResume says whether a runner running ScarabSwarm goes back to the circuit (at the next safe
@@ -64,10 +98,24 @@ func SwarmResume(c SwarmCheck) (bool, string) {
 	switch {
 	case !c.On || !c.Rotation:
 		return true, "swarmWhileWaiting is off or the runner no longer rotates"
-	case c.CircuitWorth >= c.Resume:
-		return true, fmt.Sprintf("the circuit expects %d runes again (swarmResumeRunes %d)", c.CircuitWorth, c.Resume)
+	case c.CircuitWorth >= c.Target():
+		return true, fmt.Sprintf("the circuit expects %d runes again (%s)", c.CircuitWorth, c.targetWhy())
 	}
-	return false, fmt.Sprintf("the circuit expects %d runes, under swarmResumeRunes %d", c.CircuitWorth, c.Resume)
+	return false, fmt.Sprintf("the circuit expects %d runes, under %s", c.CircuitWorth, c.targetWhy())
+}
+
+// RestockWait is how long until a circuit is worth walking: the first step (a multiple of step, up to horizon) at which worthAt
+// reaches target. 0 and true when it already does; false when the horizon passes first.
+func RestockWait(worthAt func(after time.Duration) int, target int, step, horizon time.Duration) (time.Duration, bool) {
+	if worthAt == nil || step <= 0 {
+		return 0, false
+	}
+	for d := time.Duration(0); d <= horizon; d += step {
+		if worthAt(d) >= target {
+			return d, true
+		}
+	}
+	return 0, false
 }
 
 // CircuitWorth sums worth(site, world) over the circuit's pairs.

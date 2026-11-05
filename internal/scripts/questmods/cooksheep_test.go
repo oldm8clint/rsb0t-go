@@ -34,6 +34,8 @@ type csRig struct {
 	// stage is the journal stage injected into the snapshot (the engine's journal read needs a real interface).
 	stage      int
 	stageKnown bool
+	// snapHook, when set, changes the snapshot the module's Decide is given (what the account wears, which the simulated session does not track).
+	snapHook func(*questplan.Snapshot)
 }
 
 func newCSRig(t *testing.T, at tile.Tile) *csRig {
@@ -108,6 +110,9 @@ func (r *csRig) run(q questrunner.Quest, apply func(step questplan.Step) bool) q
 	m.Decide = func(s questplan.Snapshot) questplan.Step {
 		if r.stageKnown {
 			s.Stage, s.StageKnown = r.stage, true
+		}
+		if r.snapHook != nil {
+			r.snapHook(&s)
 		}
 		st := real(s)
 		if st.Kind == questplan.StepDone || st.Kind == questplan.StepWait {

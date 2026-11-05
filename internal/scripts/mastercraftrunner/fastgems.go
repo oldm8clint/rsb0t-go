@@ -153,6 +153,8 @@ type fastSpec struct {
 	// prepare reads the pack (the side panel) and the bank as the bank opened: why the run cannot
 	// start ("" when it can) and the most loads the bank funds. It readies send.
 	prepare func(pack, bank []gamestate.SlotItem) (loads int, why string)
+	// useXP, when set, is read after prepare for the experience one use pays (a run whose item is chosen from the bank: bones).
+	useXP func() int
 	// send adds one event's packets to b (the run itself sends the booth op and the filler).
 	send func(b actions.Session, ev mastercraftplan.FastEvent, invCom, sideCom int) error
 	// done says whether a pack is a finished load: the planned end's check.
@@ -185,6 +187,9 @@ func fastRun(d *fleetrunner.Deps, q *QuickBank, s fastSpec, o FastOptions) (r Fa
 	stock := 0
 	if why == "" {
 		stock, why = s.prepare(bank.Inventory(), qv.AtOpen)
+		if s.useXP != nil {
+			s.xpTenths = s.useXP()
+		}
 	}
 	xp0 := s.xp(d)
 	if why == "" {
@@ -505,12 +510,19 @@ func BowRefusal(said string) (string, int) {
 
 // bowSpec is the fast run's spec for stringing bows of ids, xpTenths a bow.
 func bowSpec(name string, ids bowstringrunner.IDs, xpTenths int) fastSpec {
+	return pairSpec(name, ids, xpTenths, bowstringrunner.FletchingStat, BowRefusal)
+}
+
+// pairSpec is the bow load for any two unstackable items used on one another (a bow and its string, a Battlestaff and a Fire
+// orb): ids.Unstrung is the item held in slots 0..13, ids.String the one in 14..27 and ids.Strung the product; stat is the skill
+// whose experience the run reads and refused the chat check (nil for a job whose refusals are not chat lines).
+func pairSpec(name string, ids bowstringrunner.IDs, xpTenths, stat int, refused func(string) (string, int)) fastSpec {
 	n := mastercraftplan.BowStream.Uses
 	bowSlot, strSlot := -1, -1
 	startEmpty := false
 	s := fastSpec{
-		what: name, stream: mastercraftplan.BowStream, stat: bowstringrunner.FletchingStat, xpTenths: xpTenths,
-		refused: BowRefusal,
+		what: name, stream: mastercraftplan.BowStream, stat: stat, xpTenths: xpTenths,
+		refused: refused,
 		done: func(pack []gamestate.SlotItem) (bool, string) {
 			ok, _, why := bowLayout(pack, ids)
 			return ok, why

@@ -108,14 +108,14 @@ const (
 	// (a user request: "when the mule has over 50,000 uncut sapphires ... request all uncuts the
 	// mule has"; 13 Oct 2026: "gemcutting loop can trigger at 10k uncut sapphires too, cutting all
 	// uncut gems the mule has").
-	DefaultBulkSapphires = 10000
+	DefaultBulkSapphires = 20000
 	// DefaultPearlThreshold is the oyster pearls (both kinds together), this account's bank and the
 	// mule's together, before a pearl round cuts them (a user request: "20k oyster pearls must be
 	// in the mule's or the main account's bank before taking that on"; 100,000 in the mule's alone before), and
 	// DefaultBoltThreshold the Bolts, both banks together, before one puts Pearl bolttips on them
 	// (owner: "20,000 bolts for pearl bolt making").
 	DefaultPearlThreshold = 20000
-	DefaultBoltThreshold  = 20000
+	DefaultBoltThreshold  = 100000
 	// DefaultShopMaxPrice is the most a shop trip pays for one unit: 18 gp is the most a sell-1000
 	// keeper ever charges for a 3 gp Bolts (shopplan.UnitPrice's haggle clamp), so the default buys
 	// Hickton and Lowe out; Pearl bolts are worth far more (cost 110 in content).
@@ -139,7 +139,7 @@ const (
 	// together, that starts an arrow round (a user request: "at least 20,000 arrow shaft for
 	// arrows"; 1,000 before), and DefaultArrowKit the most of one arrow part a kit line asks for
 	// (they all stack).
-	DefaultArrowThreshold = 20000
+	DefaultArrowThreshold = 100000
 	DefaultArrowKit       = 100000
 	// DefaultHerbThreshold is the grimy guams the mule must hold before a herb round (owner, 4 Oct
 	// 2026: "once the mule has 1000 grimy guams").
@@ -194,6 +194,11 @@ type Settings struct {
 	SuperheatThreshold int
 	SuperheatBars      []string
 	SuperheatGold      bool
+	// GauntletsHeld is a runtime reading, NOT a settings key: whether the Goldsmith gauntlets are worn, in
+	// the pack or in this account's bank. SuperheatGold alone no longer puts Gold bars in a plan (owner,
+	// 5 Nov 2026: "we should only superheat gold once we have the gold smith gauntlets"); the caller sets
+	// this from what it sees (Snapshot.GoldGauntlets, mastercraftrunner.GauntletState).
+	GauntletsHeld bool
 	// SuperheatLowBars allows Bronze, Iron and Silver bars (off: Steel and up only, a user request).
 	SuperheatLowBars bool
 	// Smith switches the anvil round on (smith.go); SmithMinSteelBars is the Steel bars (both banks together)
@@ -208,6 +213,22 @@ type Settings struct {
 	// off); CannonballBatch the most Steel bars one round smelts; CannonballMinBars the bars the two banks must hold to start one
 	// (cannonballs.go).
 	CannonballTarget, CannonballBatch, CannonballMinBars int
+	// CannonRun is the cannon run round's settings (cannonrun.go): the owner's Ranged round with a Dwarf multicannon at the Khazard
+	// battlefield, triggered at 10,000 available Cannonballs and run until 10,000 are used.
+	CannonRun CannonRunSettings
+	// SuperheatRound and PlatebodyRound are the minutes a Mithril superheat batch and a platebody round may last, and
+	// RoundLimitPause how long a mode that reached its limit is paused (roundlimit.go; 0 is none).
+	SuperheatRound, PlatebodyRound, RoundLimitPause time.Duration
+	// Platebody switches the platebody round on; PlatebodyMinBars the bars (both banks) that start one; PlatebodyKit the bars
+	// one round asks the mule for (platebody.go).
+	Platebody bool
+	// Staves switches the Fire battlestaff round on; StavesMinStaves and StavesMinOrbs are the Battlestaff and Fire orb the mule
+	// must hold to start one (staves.go).
+	Staves bool
+	// Bones switches the bone-burying round on (bones.go; the stock, length and pause are in Sched).
+	Bones                          bool
+	StavesMinStaves, StavesMinOrbs int
+	PlatebodyMinBars, PlatebodyKit int
 	// BuyFireStaff buys a Staff of fire (the Seers market, else Zaff in Varrock) when neither this
 	// account nor the mule has one; FireStaffMaxPrice caps the market's price.
 	BuyFireStaff      bool
@@ -297,6 +318,8 @@ type Settings struct {
 	MaxHandoverFailures int
 	// Rune is the Runecrafting levelling round's settings (runecraft.go, the craftRune* keys).
 	Rune RuneSettings
+	// Sched is the round schedule's settings (schedule.go).
+	Sched ScheduleSettings
 }
 
 // DefaultSettings are the defaults.
@@ -309,6 +332,10 @@ func DefaultSettings() Settings {
 		Superheat: true, SuperheatThreshold: DefaultSuperheatThreshold,
 		Smith: true, SmithMinSteelBars: DefaultSmithMinSteelBars, SmithArrowtips: true, SmithIronPlatebodies: true, SmithKit: DefaultSmithKit,
 		CannonballTarget: DefaultCannonballTarget, CannonballBatch: DefaultCannonballBatch, CannonballMinBars: DefaultCannonballMinBars,
+		Bones:  true,
+		Staves: true, StavesMinStaves: DefaultStavesMin, StavesMinOrbs: DefaultStavesMin,
+		Platebody: true, PlatebodyMinBars: DefaultPlatebodyMinBars, PlatebodyKit: DefaultPlatebodyKit,
+		SuperheatRound: DefaultSuperheatRound, PlatebodyRound: DefaultPlatebodyRound, RoundLimitPause: DefaultRoundLimitPause,
 		BuyFireStaff: true, FireStaffMaxPrice: DefaultFireStaffMaxPrice,
 		Arrows: true, ArrowThreshold: DefaultArrowThreshold, ArrowKit: DefaultArrowKit,
 		Herbs: true, HerbThreshold: DefaultHerbThreshold,
@@ -336,6 +363,8 @@ func DefaultSettings() Settings {
 		Backoff:         DefaultBackoff, BackoffMax: DefaultBackoffMax,
 		MaxHandoverFailures: DefaultMaxHandover,
 		Rune:                DefaultRuneSettings(),
+		Sched:               DefaultScheduleSettings(),
+		CannonRun:           DefaultCannonRunSettings(),
 	}
 }
 
@@ -364,6 +393,9 @@ const (
 	// IdleOaks runs RetaliateChopper, the two-tick oak chopper at the Falador farm (a user request: "2-tick oaks" on master
 	// between trawler blocks), with ScarabSwarm behind it when it stops (internal/bot/mastercrafter_oaks.go).
 	IdleOaks = "oaks"
+	// IdleOaksDaily chops the 2-tick oaks craftOakMinutes (2 hours) once every craftOakEveryMinutes (24 hours) and runs ScarabSwarm the
+	// rest of the time (a user request; schedule.go).
+	IdleOaksDaily = "oaks-daily"
 )
 
 // KnownKeys lists every craft* key this script reads, sorted.
@@ -417,6 +449,9 @@ func DecodeSettings(raw map[string]interface{}) (Settings, error) {
 			continue
 		}
 		v := raw[k]
+		if knownKeys[k] && (s.Sched.decode(k, v, num, mins) || s.CannonRun.decode(k, v, num, mins, flag)) {
+			continue
+		}
 		if !knownKeys[k] {
 			problems = append(problems, fmt.Sprintf("%s is not a setting (known: %s)", k, strings.Join(KnownKeys(), ", ")))
 			continue
@@ -589,10 +624,10 @@ func DecodeSettings(raw map[string]interface{}) (Settings, error) {
 			num(k, v, &s.StoreQuietDays)
 		case KeyIdle:
 			switch idle := strings.ToLower(strings.TrimSpace(fmt.Sprint(v))); idle {
-			case IdlePost, IdleSwarm, IdleOaks:
+			case IdlePost, IdleSwarm, IdleOaks, IdleOaksDaily:
 				s.Idle = idle
 			default:
-				problems = append(problems, fmt.Sprintf("%s: %v is not %q, %q or %q", k, v, IdlePost, IdleSwarm, IdleOaks))
+				problems = append(problems, fmt.Sprintf("%s: %v is not %q, %q, %q or %q", k, v, IdlePost, IdleSwarm, IdleOaks, IdleOaksDaily))
 			}
 		case KeyShopMaxPrice:
 			num(k, v, &s.ShopMaxPrice)
@@ -640,6 +675,26 @@ func DecodeSettings(raw map[string]interface{}) (Settings, error) {
 			if l := toList(v); len(l) > 0 {
 				s.BowNames = l
 			}
+		case KeyBones:
+			flag(k, v, &s.Bones)
+		case KeyStaves:
+			flag(k, v, &s.Staves)
+		case KeyStavesMinStaff:
+			num(k, v, &s.StavesMinStaves)
+		case KeyStavesMinOrbs:
+			num(k, v, &s.StavesMinOrbs)
+		case KeyPlatebody:
+			flag(k, v, &s.Platebody)
+		case KeyPlatebodyMinBars:
+			num(k, v, &s.PlatebodyMinBars)
+		case KeyPlatebodyKit:
+			num(k, v, &s.PlatebodyKit)
+		case KeySuperheatRoundMinutes:
+			mins(k, v, &s.SuperheatRound)
+		case KeyPlatebodyRoundMinutes:
+			mins(k, v, &s.PlatebodyRound)
+		case KeyRoundLimitPauseMinutes:
+			mins(k, v, &s.RoundLimitPause)
 		case KeyCannonballTarget:
 			num(k, v, &s.CannonballTarget)
 		case KeyCannonballBatch:
@@ -751,8 +806,8 @@ func (s Settings) Validate() error {
 	if s.TrawlerQuorum < 1 || s.TrawlerQuorum > 2000 {
 		p = append(p, fmt.Sprintf("%s %d is outside 1..2000", KeyTrawlerQuorum, s.TrawlerQuorum))
 	}
-	if s.TrawlerFoodLow < 0 || (s.TrawlerFoodLow > 0 && s.TrawlerFoodHigh <= s.TrawlerFoodLow) {
-		p = append(p, fmt.Sprintf("%s %d and %s %d: the low mark is 0 (off) or under the high mark", KeyTrawlerFoodLow, s.TrawlerFoodLow, KeyTrawlerFoodHigh, s.TrawlerFoodHigh))
+	if s.TrawlerFoodLow < 0 || s.TrawlerFoodHigh < 0 || (s.TrawlerFoodHigh > 0 && s.TrawlerFoodHigh <= s.TrawlerFoodLow) {
+		p = append(p, fmt.Sprintf("%s %d and %s %d: the low mark is 0 (off) and the high mark 0 (no early end) or above the low mark", KeyTrawlerFoodLow, s.TrawlerFoodLow, KeyTrawlerFoodHigh, s.TrawlerFoodHigh))
 	}
 	if s.SmithKit < 1 || s.SmithKit > bowstringplan.KitMax {
 		p = append(p, fmt.Sprintf("%s %d is outside 1..%d", KeySmithKit, s.SmithKit, bowstringplan.KitMax))
@@ -785,6 +840,11 @@ func (s Settings) Validate() error {
 		p = append(p, fmt.Sprintf("%s %d is outside 1..365", KeyStoreQuietDays, s.StoreQuietDays))
 	}
 	p = append(p, s.validateCannonballs()...)
+	p = append(p, s.validateRoundLimits()...)
+	p = append(p, s.Sched.validate()...)
+	p = append(p, s.CannonRun.validate()...)
+	p = append(p, s.validatePlatebody()...)
+	p = append(p, s.validateStaves()...)
 	p = append(p, s.Rune.validate()...)
 	if !s.GemCutting && !s.BowStringing && !s.Pearls && !s.Superheat && !s.Smith && !s.Arrows && !s.Herbs {
 		p = append(p, "every round is switched off: use ScarabSwarm instead")

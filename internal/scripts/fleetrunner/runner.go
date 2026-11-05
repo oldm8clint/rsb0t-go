@@ -101,6 +101,14 @@ type Deps struct {
 	// CurseKills is the targets' worth of Curse runes PrepareTraining draws from the bank for it; off and 0 do neither.
 	CurseOpener bool
 	CurseKills  int
+	// CurseChain casts Weaken and Confuse as well as the Curse (stage3CurseChain) and CurseAttempts is the most debuff casts one target
+	// gets (stage3CurseAttempts; 0: one of each).
+	CurseChain    bool
+	CurseAttempts int
+	// BoneHaul keeps the bones an account at Prayer 43 picks up instead of leaving them (scarabBoneHaul, boneplan/haul.go) and
+	// BoneHaulCarry is the most it carries (0: boneplan.DefaultHaulCarry).
+	BoneHaul      bool
+	BoneHaulCarry int
 	// MagicGearSwap makes PrepareTraining take off armour with a negative magic attack bonus after
 	// the kit is drawn (TakeOffMagicArmour); set from stage5MagicGearSwap.
 	MagicGearSwap bool

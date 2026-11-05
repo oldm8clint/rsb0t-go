@@ -117,7 +117,7 @@ const (
 
 // DefaultDeliverNoted is the deliverNoted setting's default: the unstackable ammo parts the delivery draws as bank notes. A pack
 // takes 24 single Ropes, so a delivery of loose ones moved one pack a round whatever the bank held (the mule held 37 on 4 Nov 2026).
-func DefaultDeliverNoted() []string { return []string{AmmoRope} }
+func DefaultDeliverNoted() []string { return []string{AmmoRope, AmmoVial} }
 
 // The rotate setting's values.
 const (
@@ -308,6 +308,9 @@ type Settings struct {
 	TrawlerRoundHoldMaxMinutes int `json:"trawlerRoundHoldMaxMinutes"`
 	// SwarmResumeRunes is the circuit's estimated purchase at which the runner (re)starts it.
 	SwarmResumeRunes int `json:"swarmResumeRunes"`
+	// SwarmReadyPercent is the share of a full-shelf circuit's purchase the next circuit must expect before the runner leaves ScarabSwarm
+	// (or skips it) for the shops (swarm.go); 0 keeps swarmResumeRunes alone.
+	SwarmReadyPercent int `json:"swarmReadyPercent"`
 	// SwarmSettings is ScarabSwarm's own settings object, passed through to it unchanged (mule
 	// defaults to this runner's mule).
 	SwarmSettings map[string]interface{} `json:"swarmSettings"`
@@ -361,6 +364,12 @@ type Settings struct {
 	AmmoEveryWorld bool `json:"ammoEveryWorld"`
 	// AmmoSlotReserve is the free pack slots an ammo stop leaves for the rune stacks still to be bought.
 	AmmoSlotReserve int `json:"ammoSlotReserve"`
+	// VialTrips is the most bank trips one Aemad visit makes to bank Vials of water until the shelf is depleted (vialshuttle.go); 0 is off.
+	VialTrips int `json:"vialTrips"`
+	// RangingGuildShop places the Ranging Guild's bow shop (Dargaud: Arrow shafts and arrowtips) after each Hickton stop once the
+	// account's Ranged is 40 (rangingguild.go). RangedTo40 gives ScarabSwarm's Ranged stint to the account's swarm phase until then.
+	RangingGuildShop bool `json:"rangingGuildShop"`
+	RangedTo40       bool `json:"rangedTo40"`
 
 	// TrawlerRope adds Port Khazard, Aemad and (with RopeFloor above 0) Ned to the placed ammo shops and Rope to the ammo parts,
 	// whatever ammoShops and ammoItems list, so the mule is stocked with the Rope the Fishing Trawler's net spends. Needs ammoBuy.
@@ -418,6 +427,7 @@ func DefaultSettings() Settings {
 		SwarmWhileWaiting:    DefaultSwarmWhileWaiting,
 		SwarmCheckMinutes:    DefaultSwarmCheckMinutes,
 		SwarmResumeRunes:     DefaultSwarmResumeRunes,
+		SwarmReadyPercent:    DefaultSwarmReadyPercent,
 		SwarmSettings:        map[string]interface{}{},
 		MarketBuy:            DefaultMarketBuy,
 		MarketRunes:          []string{},
@@ -437,6 +447,9 @@ func DefaultSettings() Settings {
 		AmmoMinVisitCoins:    DefaultAmmoMinVisitCoins,
 		AmmoEveryWorld:       DefaultAmmoEveryWorld,
 		AmmoSlotReserve:      DefaultAmmoSlotReserve,
+		VialTrips:            DefaultVialTrips,
+		RangingGuildShop:     DefaultRangingGuildShop,
+		RangedTo40:           DefaultRangedTo40,
 		TrawlerRope:          DefaultTrawlerRope,
 		RopeFloor:            DefaultRopeFloor,
 		KhazardRopeOnly:      DefaultKhazardRopeOnly,
@@ -616,6 +629,7 @@ func (s Settings) Validate() error {
 		{"trawlerStintMinutes", s.TrawlerStintMinutes, 0, MaxTrawlerStintMinutes},
 		{"trawlerRoundHoldMaxMinutes", s.TrawlerRoundHoldMaxMinutes, 0, MaxTrawlerRoundHoldMaxMinutes},
 		{"swarmResumeRunes", s.SwarmResumeRunes, 1, MaxSwarmResumeRunes},
+		{"swarmReadyPercent", s.SwarmReadyPercent, 0, 100},
 		{"marketPricePercent", s.MarketPricePercent, marketstockplan.MinPricePercent, marketstockplan.MaxPricePercent},
 		{"marketCoins", s.MarketCoins, 1000, marketstockplan.MaxCoins},
 		{"marketCheckMinutes", s.MarketCheckMinutes, 1, marketstockplan.MaxCheckMinutes},
@@ -624,6 +638,7 @@ func (s Settings) Validate() error {
 		{"ammoCoins", s.AmmoCoins, 0, MaxAmmoCoins},
 		{"ammoMinVisitCoins", s.AmmoMinVisitCoins, 0, MaxAmmoMinVisitCoins},
 		{"ammoSlotReserve", s.AmmoSlotReserve, 0, MaxAmmoSlotReserve},
+		{"vialTrips", s.VialTrips, 0, MaxVialTrips},
 		{"ropeFloor", s.RopeFloor, 0, MaxRopeFloor},
 	} {
 		if r.val < r.min || (r.max > 0 && r.val > r.max) {

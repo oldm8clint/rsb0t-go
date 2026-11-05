@@ -80,7 +80,7 @@ func (b Bar) XPTenthsWith(gauntlets bool) int {
 // GoldInPlay is whether the superheat round may cast gold ore at this Smithing level: craftSuperheatGold
 // is on, the bar list allows it and Smithing is 40.
 func GoldInPlay(set Settings, smithing int) bool {
-	for _, b := range SuperheatBars(set, smithing) {
+	for _, b := range superheatBars(set, smithing, false) {
 		if b.Gold {
 			return true
 		}

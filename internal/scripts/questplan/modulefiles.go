@@ -59,6 +59,9 @@ var ModuleFiles = map[string][]string{
 		"internal/scripts/questmods/cook.go"},
 	"drunkmonk": {"internal/scripts/questplan/monksfriend.go", "internal/scripts/questmods/monk.go"},
 	"cog":       {"internal/scripts/questplan/clocktower.go", "internal/scripts/questmods/clocktower.go"},
+	// The Knight's Sword: the pure plan, the dungeon's price and the live executors (the bucket and pickaxe kits it borrows from Demon Slayer and
+	// Doric's Quest are shared helpers, not part of this module).
+	"squire": {"internal/scripts/questplan/knightssword.go", "internal/scripts/questplan/knightsdungeon.go", "internal/scripts/questmods/squire.go"},
 	// The bank rule (the nearest booth, Draynor for Lumbridge and Al Kharid) is the fillers' shared cookSheepBank.
 	"demon": {"internal/scripts/questplan/demonslayer.go", "internal/scripts/questplan/shopontheway.go", "internal/scripts/questmods/demon.go"},
 	// The ritual's Wydin shelf rule (an account nearer Port Sarim than the fields) and bank are the fillers' shared ShopOnTheWay and
@@ -83,12 +86,33 @@ var ModuleFiles = map[string][]string{
 	// Hazeel Cult and the Elemental Workshop: the pure plan and the live executors each.
 	"hazeelcult":         {"internal/scripts/questplan/hazeelcult.go", "internal/scripts/questmods/hazeel.go"},
 	"elemental_workshop": {"internal/scripts/questplan/elementalworkshop.go", "internal/scripts/questmods/workshop.go"},
+	// Lost City: the pure plan and the live executors. The Entrana crossing's strip is the Holy Grail's shared StripAtBank (questmods/grail.go), the
+	// axe rule the shared Axes list and the zombies' reach the goblin farm's interactSteps (questmods/gobdip.go); the plan's spirit odds are the shared
+	// fight tables'.
+	"zanaris": {"internal/scripts/questplan/lostcity.go", "internal/scripts/questmods/lostcity.go"},
+	// Shield of Arrav: the pure plan (and the pair rule in arravpair.go) and the live executors; the pair board is questrunner/pair.go.
+	"arrav": {"internal/scripts/questplan/arrav.go", "internal/scripts/questplan/arravpair.go", "internal/scripts/questmods/arrav.go", "internal/scripts/questrunner/pair.go"},
 	// The Digsite Quest: the pure plan and the live executors.
 	"itexam": {"internal/scripts/questplan/digsite.go", "internal/scripts/questmods/digsite.go"},
 	// Tai Bwo Wannai Trio: the pure plan (the story and journal, the hazards, the decision) and the live executors. The banana grove and
 	// the rum shelf are Pirate's Treasure's tables (piratestreasure.go), the bank rule the fillers' shared cookSheepBank.
 	"tbwt": {"internal/scripts/questplan/taibwotrio.go", "internal/scripts/questplan/taibwohazards.go", "internal/scripts/questplan/taibwodecide.go",
 		"internal/scripts/questplan/piratestreasure.go", "internal/scripts/questplan/shopontheway.go", "internal/scripts/questmods/tbwt.go"},
+	// Big Chompy Bird Hunting: the pure plan and the live executors; the axe rule (any axe the account owns, else Aemad's iron one) is the shared axe.go.
+	"chompybird": {"internal/scripts/questplan/bigchompy.go", "internal/scripts/questplan/axe.go", "internal/scripts/questmods/chompy.go", "internal/scripts/questmods/fieldhunt.go"},
+	// Shades of Mort'ton: the pure plan and the live executors, and the shared field hunt the shades are hunted with.
+	"mortton": {"internal/scripts/questplan/shadesofmortton.go", "internal/scripts/questmods/mortton.go", "internal/scripts/questmods/fieldhunt.go"},
+
+	// The Watch Tower: the pure plan (the story and the journal, the decision, the hunters' tables and prices) and the live executors (the helpers, the tower and the
+	// tribes; Gu'Tanoth and the caves; the enclave, the potion and the crystals).
+	"itwatchtower": {"internal/scripts/questplan/watchtower.go", "internal/scripts/questplan/watchtowerdecide.go", "internal/scripts/questplan/watchtowerhunt.go",
+		"internal/scripts/questmods/watchtower.go", "internal/scripts/questmods/watchtowercity.go", "internal/scripts/questmods/watchtowerenclave.go"},
+	// The Tourist Trap: the pure plan (the story, the journal, the areas and the decision) and the live executors in four files. The shop's
+	// rule (Shantay's shelf, the Al Kharid bank) is the Prince Ali quest's (princeali.go), and the Hazeel quest's driveScript (hazeel.go)
+	// drives its scripts' message boxes.
+	"desertrescue": {"internal/scripts/questplan/touristtrap.go", "internal/scripts/questplan/touristtrapdecide.go", "internal/scripts/questplan/princeali.go",
+		"internal/scripts/questplan/shopontheway.go", "internal/scripts/questmods/touristtrap.go", "internal/scripts/questmods/touristtrap_camp.go",
+		"internal/scripts/questmods/touristtrap_dart.go", "internal/scripts/questmods/touristtrap_mine.go", "internal/scripts/questmods/hazeel.go"},
 
 	// The training rungs: one module file per family, so a change to the Cows rung resets all four of
 	// its levels (they are the same code with a different skill and target).

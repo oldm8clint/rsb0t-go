@@ -125,3 +125,28 @@ func KitAskHandOver(s Settings, in KitAskInput) (Settings, bool, string) {
 	s.KeepItems = keep
 	return s, true, ""
 }
+
+// DefaultKitAskScale and DefaultKitAskBankNearFull are the defaults of the two settings that stop every kit
+// ask carrying a hand-over (a user request: hand over "only near a full bank or when the mule asks"; the
+// 5 Nov log held 130 "the errand carries the bank hand-over too" lines and 56 "handing the mule N stacks"
+// lines in 56 minutes, each a bigger trade on the mule's busiest path).
+const (
+	DefaultKitAskScale        = 5
+	DefaultKitAskBankNearFull = 250
+)
+
+// ScaleKitAskMins is KitAskHandOver's Settings with every minimum multiplied by scale, so a kit ask hands
+// over only a surplus worth a bigger trade, unless the account's bank is near full (bankRows >= nearFull),
+// where the lowered minimums stand and the bank is emptied as before. scale below 2, or nearFull <= 0 with
+// bankRows known, changes nothing; bankRows < 0 (the bank not open yet) is treated as not near full.
+func ScaleKitAskMins(s Settings, scale, bankRows, nearFull int) Settings {
+	if scale < 2 || (bankRows >= 0 && nearFull > 0 && bankRows >= nearFull) {
+		return s
+	}
+	s.MinCoins *= scale
+	s.MinRunes *= scale
+	s.MinFood *= scale
+	s.MinLootValue *= scale
+	s.MinLootRows *= scale
+	return s
+}

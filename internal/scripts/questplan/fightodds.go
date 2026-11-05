@@ -130,6 +130,22 @@ var questFoes = map[int]MeleeFoe{
 	NpcSickMourner:      FoeSickMourner,
 	NpcEwEarthRock:      FoeEarthElementalRock,
 	TbNpcShaikahan:      FoeShaikahan,
+	// The Watch Tower's ogre country (watchtower.go): the level 53 ogres, Gorad and the chieftains.
+	WtNpcOgre:       FoeOgre,
+	WtNpcOgre2:      FoeOgre,
+	WtNpcGorad:      FoeGorad,
+	WtNpcChieftain:  FoeOgreChieftain,
+	NpcTtCaptain:    FoeMercenaryCaptain,
+	NpcTtRowdyGuard: FoeRowdyGuard,
+	NpcTtDesertWolf: FoeDesertWolf,
+	NpcTtUgthanki:   FoeUgthanki,
+	// Lost City's Tree spirit, Entrana zombie and the corridor's greater demon (lostcity.go).
+	NpcLcTreeSpirit:   FoeTreeSpirit,
+	NpcLcZombie:       FoeEntranaZombie,
+	NpcLcGreaterDemon: FoeGreaterDemon,
+	NpcFeldipWolf:     FoeFeldipWolf,
+	NpcMtShadow:       FoeLoarShade,
+	NpcMtShade:        FoeLoarShade,
 }
 
 // FoeByNPC is the content stats of the quest foe with this npc id.
@@ -286,6 +302,9 @@ type FightSimInput struct {
 	// called not won (1000, ten minutes, when 0).
 	Scale    float64
 	MaxTicks int
+	// Extra is the hitpoints a tick that OTHER attackers (hunters that join the fight and are not fought back) take off the
+	// account on average, before Scale. 0 for a fight with the foe alone.
+	Extra float64
 }
 
 // FightSimResult is how a simulated fight went.
@@ -327,6 +346,7 @@ func SimulateFight(in FightSimInput) FightSimResult {
 		foeHP = float64(in.Foe.Hitpoints)
 	}
 	perAttack := FoePerAttack(in.Foe, in.Fighter) * scale
+	extra := in.Extra * scale
 	hp, maxHP := float64(in.HP), float64(in.MaxHP)
 	if maxHP <= 0 {
 		maxHP = hp
@@ -356,6 +376,9 @@ func SimulateFight(in FightSimInput) FightSimResult {
 		}
 		if t%foeTicks == 0 {
 			hp -= perAttack
+		}
+		hp -= extra
+		if t%foeTicks == 0 || extra > 0 {
 			res.MinHP = min(res.MinHP, hp)
 			if hp <= 0 {
 				res.EndHP, res.How = hp, "dies"
@@ -520,7 +543,7 @@ func fighterOf(s Snapshot) MeleeFighter {
 // raised for the foe). The first foe is priced from firstFoeHP when that is above 0 (a fight begun). Nothing is
 // judged for an account whose maximum hitpoints are unread.
 func FightChain(s Snapshot, foes []MeleeFoe, sus Sustain, firstFoeHP int) FightOdds {
-	return fightChain(s, foes, sus, firstFoeHP, true)
+	return fightChain(s, foes, sus, firstFoeHP, true, 0)
 }
 
 // MeleeChain is FightChain for a fight that is swung and never cast: the account fights each foe with its own
@@ -529,10 +552,17 @@ func FightChain(s Snapshot, foes []MeleeFoe, sus Sustain, firstFoeHP int) FightO
 // them carries food, not runes. Nothing is judged for an account whose Attack, Strength or maximum hitpoints
 // are unread.
 func MeleeChain(s Snapshot, foes []MeleeFoe, sus Sustain) FightOdds {
-	return fightChain(s, foes, sus, 0, false)
+	return fightChain(s, foes, sus, 0, false, 0)
 }
 
-func fightChain(s Snapshot, foes []MeleeFoe, sus Sustain, firstFoeHP int, casts bool) FightOdds {
+// MeleeChainAmid is MeleeChain for a fight that hunters join without being fought back: extra is the hitpoints per tick that
+// they take off the account in all (FightSimInput.Extra), for as long as each fight lasts. The Watch Tower's Gorad is fought
+// with the camp's ogres at his back.
+func MeleeChainAmid(s Snapshot, foes []MeleeFoe, sus Sustain, extra float64) FightOdds {
+	return fightChain(s, foes, sus, 0, false, extra)
+}
+
+func fightChain(s Snapshot, foes []MeleeFoe, sus Sustain, firstFoeHP int, casts bool, extra float64) FightOdds {
 	odds := FightOdds{OK: true}
 	if s.MaxHP <= 0 || (casts && s.Level("magic") <= 0) || (!casts && (s.Level("attack") <= 0 || s.Level("strength") <= 0)) {
 		return odds // hitpoints or levels not read yet: nothing to judge, as every other gate here treats an unread stat
@@ -565,7 +595,7 @@ func fightChain(s Snapshot, foes []MeleeFoe, sus Sustain, firstFoeHP int, casts 
 			foeHP = firstFoeHP
 		}
 		res := SimulateFight(FightSimInput{Foe: foe, Fighter: fighter, HP: hp, MaxHP: s.MaxHP, FoeHP: foeHP, Phases: phases,
-			Bites: bites, EatLine: FoeEatLine(sus.EatAt, foe.PeakHit(), s.MaxHP)})
+			Bites: bites, EatLine: FoeEatLine(sus.EatAt, foe.PeakHit(), s.MaxHP), Extra: extra})
 		odds.Sims = append(odds.Sims, res)
 		if ok, why := JudgeFight(res, foe, len(bites)); !ok {
 			odds.OK, odds.Why = false, why

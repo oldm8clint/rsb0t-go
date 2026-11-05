@@ -50,7 +50,9 @@ func TestEveryTrainingRungHasAFactoryOrIsKnownUnported(t *testing.T) {
 
 // Every hard gate a quest has (server, owner, item or module) names a level the planner inserts
 // a rung for, and that rung has a factory: a gate no rung produces is a ladder livelock, the
-// quest's module waiting for a level nothing trains (Horror's Prayer 40 was one).
+// quest's module waiting for a level nothing trains (Horror's Prayer 40 was one). The factory is
+// QuestFactoryFor's, so the rung may be a generic stop (train:crafting:19) as well as a named one
+// (lane N2), and it must build a quest under the rung's own id.
 func TestEveryHardGateHasARungThatProducesIt(t *testing.T) {
 	for id, f := range questplan.LadderFacts {
 		for _, g := range f.Gates {
@@ -58,8 +60,13 @@ func TestEveryHardGateHasARungThatProducesIt(t *testing.T) {
 				continue
 			}
 			rung := questplan.GateRungID(g)
-			if _, ok := QuestFactories[rung]; !ok {
-				t.Errorf("%s: gate %s %d (%s) inserts %q, which has no factory", id, g.Skill, g.Level, g.Kind, rung)
+			build, why := QuestFactoryWhy(rung)
+			if build == nil {
+				t.Errorf("%s: gate %s %d (%s) inserts %q, which has no factory (%s)", id, g.Skill, g.Level, g.Kind, rung, why)
+				continue
+			}
+			if got := build(nil).ID(); got != rung {
+				t.Errorf("%s: gate %s %d inserts %q and its factory builds %q", id, g.Skill, g.Level, rung, got)
 			}
 		}
 	}

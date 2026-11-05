@@ -66,7 +66,7 @@ func (c *carrierRig) standAcross(t *testing.T, at tile.Tile, bankCoins int) *acr
 }
 
 // The place rule. A bank on the far side of the water counts only while ScarabSwarm's quest hold has the account settled there and
-// idle (swarmHold.idlingAtBank, asked for the window scarabplan.HoldSettledFresh) and the account is still in that bank's square.
+// idle (swarmHold.idlingAtBank, asked for the window fleetplan.HoldSettledFresh) and the account is still in that bank's square.
 func TestCarrierSafePointPlaceRuleAcceptsAHoldSettledAtABank(t *testing.T) {
 	type tc struct {
 		name string
@@ -141,7 +141,7 @@ func TestCarrierLoopStartsAShiftFromTheBankTheQuestHoldWaitsAt(t *testing.T) {
 }
 
 // The shift's first stage from there. The pack holds no coins and the ships cost 60: the fares are drawn from the nearest bank first
-// (scarabplan.FareFloat of them), the walk to the post is the plain ScarabSwarm walk (the dens and the bears; WalkKaramja's boxes cannot
+// (fleetplan.FareFloat of them), the walk to the post is the plain ScarabSwarm walk (the dens and the bears; WalkKaramja's boxes cannot
 // be crossed, see runecraftrunner's real-pack test), and the mule is asked at the post as always.
 func TestCarrierAskKitFromAcrossTheWaterDrawsTheFaresAndWalksThePlainRoute(t *testing.T) {
 	c := newCarrierRig(t, nil, map[string]int{"Rune essence": 20000, "Ring of dueling(8)": 35})

@@ -136,8 +136,12 @@ func (s TrainModeSettings) CarryKit() int {
 // rings of wealth with"), and neverAlch refuses it whatever a setting names. The same day the strung Magic longbow
 // (1,536 a cast) and Magic shortbow (960) joined it (owner: "accounts should be high alching magic longbow strung
 // while waiting"): MasterCrafter strings the mule's 591k Magic longbows.
+//
+// 5 Nov 2026 (owner: "the platebodies are to be used for alching amongst the fleet"): MasterCrafter's platebody round makes
+// Rune (39,000 a cast) and Adamant (7,680) platebodies besides the Mithril (3,120) and Iron ones above; each pays far more than
+// the Nature rune a cast costs, and they head the list.
 var DefaultAlchItems = []string{
-	"Adamant plateskirt", "Adamant platelegs", "Mithril platebody", "Runite bar", "Adamant chainbody",
+	"Rune platebody", "Adamant platebody", "Adamant plateskirt", "Adamant platelegs", "Mithril platebody", "Runite bar", "Adamant chainbody",
 	"Adamant sq shield", "Black platebody", "Adamant full helm", "Adamant longsword",
 	"Mithril plateskirt", "Mithril platelegs", "Magic longbow", "Mithril kiteshield", "Adamant sword", "Ruby ring",
 	"Steel platebody", "Mithril chainbody", "Adamant med helm", "Black plateskirt", "Black platelegs", "Magic shortbow", "Adamant mace",
@@ -159,7 +163,7 @@ var DefaultAlchItems = []string{
 // AlchItemsRanked reads it; a name it has no number for (a setting's own) ranks after the known ones.
 var alchValueByName = map[string]int{
 	"steel platebody": 1200, "yew longbow id66": 384, "yew shortbow id68": 240, "hardleather body": 102,
-	"dragonstone": 6000, "adamant plateskirt": 3840, "adamant platelegs": 3840, "mithril platebody": 3120,
+	"rune platebody": 39000, "adamant platebody": 7680, "dragonstone": 6000, "adamant plateskirt": 3840, "adamant platelegs": 3840, "mithril platebody": 3120,
 	"runite bar": 3000, "adamant chainbody": 2880, "adamant sq shield": 2304, "black platebody": 2304,
 	"adamant full helm": 2112, "adamant longsword": 1920, "mithril plateskirt": 1560,
 	"mithril platelegs": 1560, "magic longbow": 1536, "mithril kiteshield": 1326, "adamant sword": 1248, "ruby ring": 1215,

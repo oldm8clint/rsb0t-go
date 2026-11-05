@@ -246,12 +246,6 @@ func (t *Travel) runPoll(d *Deps) {
 	if !known {
 		return
 	}
-	if energy <= FruitRunAt && StrangeFruitHeld(d) > 0 {
-		if EatStrangeFruit(d) {
-			t.sayEvery(d, "fruit", time.Minute, fmt.Sprintf("travel: ate a Strange fruit at %d%% run energy (%d left)", energy, StrangeFruitHeld(d)))
-			energy += 30
-		}
-	}
 	if energy >= 1 && !st.RunEnabled() {
 		_ = actions.SetRun(d.Session, true)
 	}

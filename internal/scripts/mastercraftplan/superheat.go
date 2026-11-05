@@ -127,10 +127,17 @@ func (b Bar) Casts(have func(item string) int) int {
 }
 
 // SuperheatBars is the bars this account may make, highest first: Smithing allows it, the setting
-// lists it (empty: all), gold only when set.SuperheatGold, and Bronze, Iron and Silver only when
+// lists it (empty: all), gold only when set.SuperheatGold AND the Goldsmith gauntlets are worn, packed or
+// banked (set.GauntletsHeld; a user request), and Bronze, Iron and Silver only when
 // set.SuperheatLowBars (off by default: Steel and up only, a user request; the Iron bars the fleet
 // holds go to the anvil round's Iron platebodies instead).
 func SuperheatBars(set Settings, smithing int) []Bar {
+	return superheatBars(set, smithing, true)
+}
+
+// superheatBars is SuperheatBars with the gauntlets gate switched: gated false asks only whether the
+// setting would allow gold (GoldInPlay, which decides whether to fetch and wear the gauntlets).
+func superheatBars(set Settings, smithing int, gated bool) []Bar {
 	allowed := map[string]bool{}
 	for _, n := range set.SuperheatBars {
 		if b, ok := BarByName(n); ok {
@@ -139,7 +146,7 @@ func SuperheatBars(set Settings, smithing int) []Bar {
 	}
 	var out []Bar
 	for _, b := range Bars {
-		if b.Level > smithing || (b.Gold && !set.SuperheatGold) || (b.Low && !set.SuperheatLowBars) {
+		if b.Level > smithing || (b.Gold && (!set.SuperheatGold || (gated && !set.GauntletsHeld))) || (b.Low && !set.SuperheatLowBars) {
 			continue
 		}
 		if len(allowed) > 0 && !allowed[b.Name] {
@@ -267,6 +274,10 @@ func SuperheatReady(set Settings, magic, smithing int, mule Stock, own Superheat
 	return p, true, false, strconv.Itoa(p.Total) + " bars' worth of ore and runes, " + p.Bar.Name + " first"
 }
 
+// SuperheatNatureAsk is the most Nature runes a superheat round holds at once, about two hours of casts. The fleet alchs
+// from the same stock: on 5 Nov 2026 one ask for a whole Steel run took all 28,888 of the mule's.
+const SuperheatNatureAsk = 3000
+
 // PlanSuperheatAsk is the kit a superheat round asks the mule for, for the casts of p.Bar this
 // account's own bank cannot already make: the ores, the natures and (without a staff) the fire runes,
 // or the mule's Staff of fire when it publishes one and no staff is held.
@@ -289,7 +300,7 @@ func PlanSuperheatAsk(p SuperheatPlan, mule Stock, own SuperheatStock, staff boo
 	if b.SecondPer > 0 {
 		add(b.Second, p.Casts*b.SecondPer)
 	}
-	add(NatureRune, p.Casts)
+	add(NatureRune, min(p.Casts, SuperheatNatureAsk))
 	if !staff {
 		if stockOf(mule, StaffOfFire) > 0 {
 			lines = append(lines, Line{Item: StaffOfFire, Qty: 1})

@@ -214,9 +214,9 @@ func TestAmmoRegistryAndSplit(t *testing.T) {
 	if _, ok := AmmoSiteFor("Fionella"); ok {
 		t.Error("an unknown shop was found")
 	}
-	// Dargaud is the one shop that sells Arrow shafts, and it is not built: the reason is Ranged 40.
+	// Dargaud is the one shop that sells Arrow shafts; it is built since 5 Nov 2026 and opens at Ranged 40.
 	dargaud, _ := AmmoSiteFor(SiteDargaud)
-	if !dargaud.Shop.Sells(AmmoShaft) || dargaud.Built || !strings.Contains(dargaud.Gate, "Ranged 40") {
+	if !dargaud.Shop.Sells(AmmoShaft) || !dargaud.Built || dargaud.MinRanged != 40 {
 		t.Errorf("Dargaud: %+v", dargaud)
 	}
 	for _, k := range BuiltAmmoSites() {
@@ -227,7 +227,7 @@ func TestAmmoRegistryAndSplit(t *testing.T) {
 	}
 	// Split: built sites whose anchor is in the round are placed; the rest say why.
 	placed, left := SplitAmmoSites([]string{"Gerrant", "Lowe", "Hickton", "Dargaud", "FishingGuild"}, []string{SiteBetty, SiteAubury, SiteLundail})
-	if strings.Join(placed, ",") != "Gerrant,Lowe,Hickton" || len(left) != 2 || !strings.Contains(left[0], "Ranged 40") || !strings.Contains(left[1], "dropped") {
+	if strings.Join(placed, ",") != "Gerrant,Lowe,Hickton,Dargaud" || len(left) != 1 || !strings.Contains(left[0], "dropped") {
 		t.Errorf("placed %v left %v", placed, left)
 	}
 	placed, left = SplitAmmoSites([]string{"Gerrant", "Lowe", "Hickton"}, []string{SiteAubury})

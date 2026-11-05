@@ -100,6 +100,9 @@ type KQSettings struct {
 	Waterskins int `json:"kqWaterskins"`
 	// Antipoison is the antipoison potions a life carries (AntipoisonForms, fewest doses first); 0 carries none.
 	Antipoison int `json:"kqAntipoison"`
+	// StrangeFruit is the Strange fruit a life carries when the account's bank holds some (a user request): after antipoison it is what
+	// cures poison (stage6CurePoison). 0 carries none.
+	StrangeFruit int `json:"kqStrangeFruit"`
 	// Prayer is the protection prayer to hold for the whole fight, or "" to hold none. It
 	// defaults to KQPrayerName (Protect from Magic, Prayer 37) because that is clause 1 of
 	// PlanZeroDamage and the standing recommendation of every closed Scarab claim — and until
@@ -193,11 +196,14 @@ const DefaultEscapePrayerPoints = 6
 // (the way back) cost one each (skill_magic/configs/magic_spells.dbrow).
 const DefaultReturnLaws = 2
 
+// DefaultKQStrangeFruit is how many Strange fruit a Queen life carries, from the account's own bank, when it holds some.
+const DefaultKQStrangeFruit = 3
+
 // DefaultKQSettings are the defaults.
 func DefaultKQSettings() KQSettings {
 	// CastsPerLife and RopeStock are the production budgets (budgets.go): they were 30 and 10.
 	return KQSettings{CastsPerLife: ProdKQCastsPerLife, Food: 5, FoodHeal: 100, EatBelowHP: 6, Standoff: RecommendedKQStandoff, Ropes: 2, RopeStock: ProdKQRopeStock,
-		SpareCoins: 10, Waterskins: 1, Antipoison: 2, Loot: true, LootRadius: 12, Spacing: 0, Prayer: KQPrayerName,
+		SpareCoins: 10, Waterskins: 1, Antipoison: 2, StrangeFruit: DefaultKQStrangeFruit, Loot: true, LootRadius: 12, Spacing: 0, Prayer: KQPrayerName,
 		SpawnWindow: DefaultSpawnWindowSettings(), ReturnRoute: true, ReturnLaws: DefaultReturnLaws,
 		EscapePrayerPoints: DefaultEscapePrayerPoints, EscapeCamelot: true, ReturnPray: true, PrayerOffIdle: true,
 		PrayerFlick: true, FlickMaxLateTicks: DefaultFlickMaxLateTicks, FlickHitWindowTicks: DefaultFlickHitWindowTicks,
@@ -242,6 +248,9 @@ func (s KQSettings) Normalised() KQSettings {
 	}
 	if s.Antipoison < 0 || s.Antipoison > 6 {
 		s.Antipoison = d.Antipoison
+	}
+	if s.StrangeFruit < 0 || s.StrangeFruit > 10 {
+		s.StrangeFruit = d.StrangeFruit
 	}
 	if s.Spacing < 0 || s.Spacing > 20 {
 		s.Spacing = d.Spacing

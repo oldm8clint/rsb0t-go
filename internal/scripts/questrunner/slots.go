@@ -118,6 +118,30 @@ var exclusiveQuests = map[string]bool{
 	// whose beast share their state between everyone watching (the executor also takes a process-wide turn at it): not a place for the
 	// whole canary cohort at once. The slot is held for the whole run, which is long.
 	questplan.TaiBwoID: true,
+	// The Watch Tower's shamans (six npcs that one account's potion removes for every player for 102 ticks), Gorad (one npc, back 60 ticks after a death), the
+	// rock cake stall (empty for twelve ticks after each theft and minded by one trader), the candle, the nightshade and the berries are shared ground; the
+	// quest is long and every leg of it is through hunters. Held for the whole run.
+	questplan.WatchtowerID: true,
+	// The Tourist Trap's captain (he is back 50 ticks after a death), the camp's five male slaves (one at a time changes type for 200 ticks after a
+	// trade), Captain Siad's room and chest, Al Shabim, the Bedabin guard and anvil, the cave guards, the carts and Ana herself (one npc in the deep
+	// mine, deleted when she is caught) are single things the whole canary cohort would fight over, and the shop's shelf holds ten outfits. The slot is
+	// held for the whole run.
+	questplan.TouristTrapID: true,
+	// Lost City's Shamus is one npc a hundred ticks long at one tree, the zombies that drop the axe are five spawns of one cave, and the Tree
+	// spirit is one npc with one health bar that single combat gives to one attacker and whose defeat is credited to the player who dealt most (an
+	// account that casts while another does is a coin toss for the stage): one account at a time until the spirit is beaten (Module.ExclusiveDone,
+	// questplan.LcPastSpirit). A later run for the branch is not queued behind it (the hint is remembered).
+	questplan.LostCityID: true,
+	// Big Chompy Bird Hunting: Rantz shoots and misses for one baited chompy at a time, the swamp pool's eight toads and the one reachable
+	// bubble are shared, so are the cave's chest (open for fifty ticks) and the Feldip wolves: two accounts at a time, not the whole canary cohort.
+	questplan.ChompyID: true,
+	// Shades of Mort'ton: the two villagers change type for everyone for 200 ticks after a dose of serum, the temple's walls, its altar and the funeral pyres are
+	// locs changed for the whole world, and the shades hunt whoever stands near: ONE account at a time, held for the whole run.
+	questplan.MorttonID: true,
+	// The Knight's Sword's pie dish is a ground spawn in the Varrock palace kitchen, Wydin's shelf keeps three pots of flour and one redberry, the
+	// Rimmington house has one sink and one range, Sir Vyvin's cupboard is one loc a lone knight wanders round, and the blurite rocks of the Asgarnian
+	// Ice Dungeon are two beside each other under two Ice warriors: held for the whole run (there is no step it can be released at).
+	questplan.KnightsSwordID: true,
 }
 
 // slotRepeats are the exclusive quests whose shared step comes round again on a later run, so a
@@ -203,8 +227,17 @@ var slotCapacity = map[string]int{
 	// Three at a time: a run is up to 56 minutes of errands over one site, each shared spawn (the tray, the tablet) asked for once, and the
 	// altar cave is no place for a crowd.
 	questplan.DigsiteID: 3,
+	// Two at a time: the cave's two rocks stand under the same two warriors and a visit is minutes of a long run, and Sir Vyvin's room is
+	// no place for a crowd.
+	questplan.KnightsSwordID: 2,
 	// Three at a time: a run is an hour and a half of errands across the island, each shared thing asked for a few times in it.
 	questplan.TaiBwoID: 3,
+	// Two at a time: the shamans come back in 102 ticks, Gorad in 60, and the ogres' country is no place for a crowd.
+	questplan.WatchtowerID: 2,
+	// Two at a time: a run is two hours, and Ana, the captain and Siad's chest are one each.
+	questplan.TouristTrapID: 2,
+	// Two at a time: the toads, the bubble, the chest and the wolves are the shared things.
+	questplan.ChompyID: 2,
 }
 
 func capacityOf(id string) int {

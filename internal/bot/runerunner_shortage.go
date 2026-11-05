@@ -38,6 +38,7 @@ func (b *runeRunnerBot) refreshShortage(ctx *Context) {
 		Runes: b.baseRunes, Caps: b.baseCaps, Mule: muleBankCount(ctx, b.set.Mule),
 	})
 	b.set.RuneList, b.set.CapTable = plan.Runes, plan.Caps
+	b.muleShort = len(plan.Short) > 0
 	line := plan.String()
 	if line == b.shortageLine && time.Since(b.shortageAt) < runeRunnerShortageEvery {
 		return

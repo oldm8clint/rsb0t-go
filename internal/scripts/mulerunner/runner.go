@@ -134,6 +134,11 @@ type Deps struct {
 	// first: the order RunCycle serves them in (see RequestWatcher.pick). nil serves requesters
 	// in the order they asked.
 	Queue func() []string
+	// LeaveWait, when set, is asked on every pass of RunCycle's idle wait while no trade is open
+	// and no reciprocated request is awaiting its screen; true ends the wait early (CycleResult.Early)
+	// so the caller can serve work that became servable while it waited. It must be cheap and must
+	// not trade. nil never ends the wait early.
+	LeaveWait func() bool
 }
 
 // queue is Deps.Queue, nil-safe.
@@ -793,6 +798,9 @@ type CycleResult struct {
 	// Reason is a short, stable description of why a handled trade was not accepted, for the
 	// mule dashboard's failure list. Empty when Accepted, or when nothing was handled.
 	Reason string
+	// Early is true when the wait ended because Deps.LeaveWait said so: nothing was seen, nothing
+	// was handled, and the caller should go straight round to the work that became servable.
+	Early bool
 }
 
 // completeTrade drives an already-open offer screen through to a close: partner-name
@@ -1085,6 +1093,9 @@ func RunCycle(d *Deps, watcher *RequestWatcher, allowed map[string]bool, timeout
 			watcher.queue(name, now)
 		}
 		watcher.prune(d, now)
+		if !awaiting && watcher.awaitingPartner == "" && d.LeaveWait != nil && d.LeaveWait() {
+			return CycleResult{Early: true}
+		}
 		if !awaiting {
 			if watcher.awaitingPartner != "" {
 				// The last reservation lapsed with no screen. If it was a first request

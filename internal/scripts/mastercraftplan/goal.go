@@ -37,6 +37,8 @@ var goalRounds = map[Mode][]string{
 	ModePearls:    {"Crafting", "Fletching"},
 	ModeSuperheat: {"Magic", "Smithing"},
 	ModeSmith:     {"Smithing"},
+	ModeStaves:    {"Crafting"},
+	ModePlatebody: {"Smithing"},
 	ModeArrows:    {"Fletching"},
 	ModeHerbs:     {"Herblore"},
 }
@@ -56,7 +58,7 @@ func (s Settings) validateGoal() []string {
 }
 
 func goalRoundNames() []string {
-	return []string{string(ModeGems), string(ModeBows), string(ModePearls), string(ModeSuperheat), string(ModeSmith), string(ModeArrows), string(ModeHerbs)}
+	return []string{string(ModeGems), string(ModeBows), string(ModePearls), string(ModeStaves), string(ModeSuperheat), string(ModePlatebody), string(ModeSmith), string(ModeArrows), string(ModeHerbs)}
 }
 
 // skillLevel is the snapshot's level of a skill the goal reads, and whether it is known.

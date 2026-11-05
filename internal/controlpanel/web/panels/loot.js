@@ -74,6 +74,13 @@ const STRANGE_BOX = 3062; // the Random events card's picture when no model is o
 // any of these makes its cell shimmer and puts the drop in the ticker.
 const RARE = new Set([985, 987, 1621, 1619, 1617, 1454, 411, 413]);
 
+/**
+ * A drop item the ticker shows: one of the fixed rares above, or one the server judged notable by value
+ * (loot.IsNotable: a unit worth 20k gp or a stack worth 200k, from any source: npcs, chests, pickpockets,
+ * random events, caskets).
+ */
+const isNotable = (r, it) => RARE.has(it.id) || (r.notable ?? []).includes(it.id);
+
 const PERIODS = [
     { value: 'lifetime', label: 'Lifetime (persisted)' },
     { value: 'sinceRestart', label: 'Since this restart' }
@@ -133,7 +140,7 @@ const POSES = [
     { value: 'walk', label: 'Walking (walkanim)' }
 ];
 
-const VERBS = { kill: ['Killed', 'kill', 'kills'], pickpocket: ['Pickpocketed', 'pickpocket', 'pickpockets'], steal: ['Stole from', 'steal', 'steals'], open: ['Opened', 'open', 'opens'], complete: ['Completed', 'trail', 'trails'], event: ['Completed', 'event', 'events'], fish: ['Caught', 'catch', 'catches'], claim: ['Claimed', 'claim', 'claims'], mend: ['Mended', 'net', 'nets'], chop: ['Chopped', 'log', 'logs'], mine: ['Mined', 'rock', 'rocks'], fletch: ['Fletched', 'material', 'materials'], craft: ['Crafted', 'material', 'materials'], smith: ['Smelted', 'bar', 'bars'], superheat: ['Superheated', 'cast', 'casts'], 'superheat-runes': ['Superheated', 'cast', 'casts'], alch: ['Alched', 'cast', 'casts'], 'alch-runes': ['Alched', 'cast', 'casts'], lowalch: ['Alched', 'cast', 'casts'], 'lowalch-runes': ['Alched', 'cast', 'casts'], clean: ['Cleaned', 'herb', 'herbs'], bury: ['Buried', 'bone', 'bones'], take: ['Picked up', 'pickup', 'pickups'], teleport: ['Cast', 'teleport', 'teleports'], combat: ['Spells on', 'kill', 'kills'], eat: ['Ate', 'food', 'food'], drink: ['Drank', 'drink', 'drinks'], cook: ['Cooked', 'raw food', 'raw food'], buy: ['Bought', 'item', 'items'], pick: ['Picked', 'plant', 'plants'], forge: ['Worked', 'bar', 'bars'], runecraft: ['Crafted', 'craft', 'crafts'], handover: ['Handed over', 'essence', 'essence'] };
+const VERBS = { kill: ['Killed', 'kill', 'kills'], pickpocket: ['Pickpocketed', 'pickpocket', 'pickpockets'], steal: ['Stole from', 'steal', 'steals'], open: ['Opened', 'open', 'opens'], complete: ['Completed', 'trail', 'trails'], event: ['Completed', 'event', 'events'], fish: ['Caught', 'catch', 'catches'], claim: ['Claimed', 'claim', 'claims'], mend: ['Mended', 'net', 'nets'], chop: ['Chopped', 'log', 'logs'], mine: ['Mined', 'rock', 'rocks'], fletch: ['Fletched', 'material', 'materials'], craft: ['Crafted', 'material', 'materials'], smith: ['Smelted', 'bar', 'bars'], superheat: ['Superheated', 'cast', 'casts'], 'superheat-runes': ['Superheated', 'cast', 'casts'], alch: ['Alched', 'cast', 'casts'], 'alch-runes': ['Alched', 'cast', 'casts'], lowalch: ['Alched', 'cast', 'casts'], 'lowalch-runes': ['Alched', 'cast', 'casts'], clean: ['Cleaned', 'herb', 'herbs'], bury: ['Buried', 'bone', 'bones'], take: ['Picked up', 'pickup', 'pickups'], teleport: ['Cast', 'teleport', 'teleports'], combat: ['Spells on', 'kill', 'kills'], superheatcast: ['Cast', 'cast', 'casts'], eat: ['Ate', 'food', 'food'], drink: ['Drank', 'drink', 'drinks'], cook: ['Cooked', 'raw food', 'raw food'], buy: ['Bought', 'item', 'items'], pick: ['Picked', 'plant', 'plants'], forge: ['Worked', 'bar', 'bars'], runecraft: ['Crafted', 'craft', 'crafts'], handover: ['Handed over', 'essence', 'essence'] };
 
 // A card that merges more than one ACTION needs a verb of its own: the Thieving card holds
 // pickpockets and stall steals, and taking the first source's verb said "Pickpocketed 19,124"
@@ -589,7 +596,7 @@ export function mergeSameName(sources) {
         const byId = new Map(hit.items.map(it => [it.id, it]));
         for (const it of s.items ?? []) {
             const have = byId.get(it.id);
-            if (have) have.count = (have.count ?? 0) + (it.count ?? 0);
+            if (have) sumItem(have, it);
             else { const c = { ...it }; hit.items.push(c); byId.set(it.id, c); }
         }
     }
@@ -672,6 +679,17 @@ export function partWorthOf(p) {
 // already has, so every figure on a group is the sum of the rows inside it and the card's totals are
 // untouched. Pure, so it is tested without a browser.
 
+/**
+ * Adds item `it` into `have`. `count` is the NET of items lost in deaths (internal/controlpanel/lootdeaths.go
+ * deathLossesBy); `raw` is the count before that deduction and exists only where one was made, so it is
+ * summed as the raw figure of both sides and dropped again when nothing was deducted.
+ */
+export function sumItem(have, it) {
+    const raw = (have.raw ?? have.count ?? 0) + (it.raw ?? it.count ?? 0);
+    have.count = (have.count ?? 0) + (it.count ?? 0);
+    if (raw !== have.count) have.raw = raw; else delete have.raw;
+}
+
 /** The cast rows that are folded together on the Magic card, by their action. */
 const CAST_GROUPS = {
     alch: 'High Alchemy', 'alch-runes': 'High Alchemy',
@@ -712,7 +730,7 @@ export function mergeParts(key, name, rows) {
         out.last = Math.max(out.last, p.last ?? 0);
         for (const it of p.items) {
             const have = byId.get(it.id);
-            if (have) have.count = (have.count ?? 0) + (it.count ?? 0);
+            if (have) sumItem(have, it);
             else { const c = { ...it }; out.items.push(c); byId.set(it.id, c); }
         }
     }
@@ -851,7 +869,7 @@ function addPart(g, s, src) {
     const byId = new Map(p.items.map(it => [it.id, it]));
     for (const it of s.items ?? []) {
         const have = byId.get(it.id);
-        if (have) have.count = (have.count ?? 0) + (it.count ?? 0);
+        if (have) sumItem(have, it);
         else { const c = { ...it }; p.items.push(c); byId.set(it.id, c); }
     }
 }
@@ -1204,6 +1222,7 @@ export default {
                 let a = agg.get(it.id);
                 if (!a) { a = { id: it.id, name: it.name, count: 0, value: it.value ?? 0 }; agg.set(it.id, a); }
                 a.count += it.count;
+                a.raw = (a.raw ?? a.count - it.count) + (it.raw ?? it.count);
             }
             const byValue = view.sortItems === 'value';
             const topItems = [...agg.values()].sort((p, q) => (byValue ? q.count * q.value - p.count * p.value : q.count - p.count) || p.name.localeCompare(q.name)).slice(0, 6);
@@ -1240,10 +1259,10 @@ export default {
             ticker.textContent = '';
             if (!S.ticker) { ticker.hidden = true; return; }
             ticker.hidden = false;
-            const notable = (data.recent ?? []).filter(r => (r.items ?? []).some(it => RARE.has(it.id))).slice(0, 8);
+            const notable = (data.recent ?? []).filter(r => (r.items ?? []).some(it => isNotable(r, it))).slice(0, 8);
             ticker.append(el('span', 'loot-ticker-label', 'Notable drops'));
             if (!notable.length) {
-                ticker.append(el('span', 'none', 'none yet — key halves, uncut emeralds, rubies and diamonds, cosmic talismans and pearls appear here'));
+                ticker.append(el('span', 'none', 'none yet — any drop worth a lot (rare armour, gems, keys, pearls) appears here, from any source'));
                 return;
             }
             const now = data.now;
@@ -1256,7 +1275,7 @@ export default {
                 item.append(el('span', 'loot-tick-t', ago(now - r.at)), el('span', 'who', r.account));
                 const verb = verbFor({ source: r.source })[0].toLowerCase();
                 item.append(el('span', 'loot-tick-src', `${verb} ${r.source.name}${r.events > 1 ? ` x${r.events}` : ''}`));
-                for (const it of r.items.filter(i => RARE.has(i.id))) {
+                for (const it of r.items.filter(i => isNotable(r, i))) {
                     const chip = el('span', 'loot-tick-item');
                     chip.append(itemIconWrap(it.id, it.name), el('span', '', `${it.count > 1 ? `${fmtCount(it.count)} x ` : ''}${it.name}`));
                     item.append(chip);
@@ -1463,6 +1482,7 @@ export default {
             const each = perHour(it.count, rate.span);
             if (each !== null) lines.push(`${fmtRate(each)} per hour${lifetimeView() ? ' (lifetime average)' : ''}`);
             if (it.value) lines.push(`${fmtCount(it.value * it.count)} gp (${fmtCount(it.value)} each)`);
+            if (it.raw > it.count) lines.push(`${fmtCount(it.raw)} looted, ${fmtCount(it.raw - it.count)} lost in deaths (net shown)`);
             if (rare) lines.push('Rare drop');
             details.set(cell, lines.join('\n'));
             cell.setAttribute('aria-label', lines.join(', '));
@@ -1525,7 +1545,7 @@ export default {
                 const w = partWorthOf(p);
                 const xpHour = p.xp > 0 && p.items.length ? perHour(p.xp, p, XP_TRACKED_FROM_MS) : null;
                 const what = el('span', 'loot-part-count', `${verb[0]} ${fmtCount(p.events)}${p.xp > 0 && p.items.length ? ` · ${fmtCount(p.xp)} xp${xpHour === null ? '' : ` (${fmtRate(xpHour)}/h)`}` : ''}`);
-                const worth = el('span', 'loot-part-worth', COST_KINDS.has(p.kind) || p.action === 'combat' ? `${fmtCount(p.cost ?? 0)} gp spent` : p.xp > 0 && !p.items.length ? `${fmtCount(p.xp)} xp` : `${fmtCount(w.gp)} gp${w.basis === 'gross' ? ' gross' : ''}`);
+                const worth = el('span', 'loot-part-worth', COST_KINDS.has(p.kind) || (p.action === 'combat' || p.action === 'superheatcast') ? `${fmtCount(p.cost ?? 0)} gp spent` : p.xp > 0 && !p.items.length ? `${fmtCount(p.xp)} xp` : `${fmtCount(w.gp)} gp${w.basis === 'gross' ? ' gross' : ''}`);
                 if (w.basis) worth.title = w.basis === 'net' ? `net of ${fmtCount(p.costUnits)} x ${p.costItem} (${fmtCount(p.cost)} gp)` : `gross: no trustworthy price for the ${p.costItem} used`;
                 const accts = el('span', 'loot-part-accts', `${fmtCount(p.accounts)} acct${p.accounts === 1 ? '' : 's'}`);
                 const icons = el('span', 'loot-part-items');
@@ -1643,8 +1663,17 @@ export default {
                     const h = perHour(k.count, s, XP_TRACKED_FROM_MS);
                     xpBits.push(`${SKILL_ABBR[k.name] ?? k.name} ${fmtCount(k.count)}${h === null ? '' : ` (${fmtRate(h)}/h)`}`);
                 }
+                // The runes an npc's kills dropped, the ones the fleet casts (internal/controlpanel/lootrates.go ranks the npcs by this).
+                let runeText = '';
+                if (s.source.kind === 'npc' && s.source.action === 'kill') {
+                    const runeGp = (s.items ?? []).filter(it => it.id >= 554 && it.id <= 566).reduce((n, it) => n + it.count * (it.value ?? 0), 0);
+                    if (runeGp > 0) {
+                        const h = perHour(runeGp, s);
+                        runeText = ` · runes dropped: ${fmtCount(runeGp)} gp${h === null ? '' : ` (${fmtRate(h)} gp/h)`}`;
+                    }
+                }
                 const xpText = xpBits.length ? ` · xp: ${xpBits.join(', ')}` : '';
-                card.metaEl.textContent = `${rate}${s.accounts} account${s.accounts === 1 ? '' : 's'} · last ${ago(data.now - s.last)}${spent}${xpText}`;
+                card.metaEl.textContent = `${rate}${s.accounts} account${s.accounts === 1 ? '' : 's'} · last ${ago(data.now - s.last)}${spent}${runeText}${xpText}`;
                 card.el.setAttribute('aria-label', `${cardTitle(s.source)}${card.levelEl && s.source.level ? ` level ${s.source.level}` : ''}: ${verb[0].toLowerCase()} ${fmtCount(s.events)} times, ${xpCard ? `${fmtCount(s.xp)} experience` : `worth ${fmtCount(worth)} gp, ${fmtRate(gpHour)} gp per hour`}`);
             }
             drawParts(card, s);

@@ -122,10 +122,9 @@ func (b *masterCrafterBot) trawlerSnapshot(ctx *Context, s *mastercraftplan.Snap
 	s.Trawler.Food, s.Trawler.FoodKnown = b.trawlerFood(ctx)
 }
 
-// trawlerFood is the food the mule's published bank holds of the top tier the trawler restocks and the fleet eats in fights
-// (trawlerFoods): Shark, Sea turtle and Manta ray, cooked or raw. Every food the mule hands out counted 9,681,175 pieces live on
-// 5 Nov 2026 01:24 (cheap food in the millions), so the low mark could never be reached. known is false while the mule's bank is
-// not on the peer board.
+// trawlerFood is the RAW fish the mule's published bank holds that the trawler restocks (trawlerFoods): Raw shark, Raw sea turtle and
+// Raw manta ray (a user request: a block starts when the mule is out of all three; it counted cooked and raw before). known is
+// false while the mule's bank is not on the peer board.
 func (b *masterCrafterBot) trawlerFood(ctx *Context) (n int, known bool) {
 	count := muleBankCount(ctx, b.mule)
 	if count == nil {
@@ -139,7 +138,7 @@ func (b *masterCrafterBot) trawlerFood(ctx *Context) (n int, known bool) {
 }
 
 // trawlerFoods are the foods trawlerFood counts.
-var trawlerFoods = []string{"Shark", "Raw shark", "Sea turtle", "Raw sea turtle", "Manta ray", "Raw manta ray"}
+var trawlerFoods = []string{"Raw shark", "Raw sea turtle", "Raw manta ray"}
 
 // trawlerBlockNow reports whether the two-hour trawler block runs and no backoff holds it (mastercraftplan.TrawlerBlockOn).
 func (b *masterCrafterBot) trawlerBlockNow(ctx *Context, now time.Time) bool {
@@ -345,7 +344,7 @@ func (b *masterCrafterBot) trawlerStraightOn(ctx *Context, d *fleetrunner.Deps) 
 		return 0, false
 	}
 	t := b.ledger.Trawler
-	if mastercraftplan.TrawlerRestLen > 0 && !t.BlockStart.IsZero() && time.Since(t.BlockStart) >= mastercraftplan.TrawlerBlockLen {
+	if b.set.Sched.TrawlerRest > 0 && !t.BlockStart.IsZero() && time.Since(t.BlockStart) >= b.set.Sched.TrawlerBlock {
 		return 0, false
 	}
 	watch := b.trawlerWatch()
@@ -673,15 +672,25 @@ func (b *masterCrafterBot) trawlerTipAsk(ctx *Context, d *fleetrunner.Deps) []ma
 	var lines []mastercraftplan.Line
 	arrowtips := 0
 	for _, p := range trawlerTips[:4] {
-		if n := have(p.tipName); n > 0 {
-			lines = append(lines, mastercraftplan.Line{Item: p.tipName, Qty: n})
-			arrowtips += n
+		arrowtips += have(p.tipName)
+	}
+	// TIPPING ONLY AT 100,000 (a user request): the arrows or bolts the mule holds to tip must reach craftArrowThreshold /
+	// craftBoltThreshold before the anchor takes any tips aboard (what the pack already holds is tipped whatever the stock).
+	arrowsDue, boltsDue := mastercraftplan.TipsDue(b.set, arrowtips, have(mastercraftplan.Headless), have(pearlplan.Tips), have("Bolts"))
+	if !arrowsDue && !boltsDue {
+		return nil
+	}
+	if arrowsDue {
+		for _, p := range trawlerTips[:4] {
+			if n := have(p.tipName); n > 0 {
+				lines = append(lines, mastercraftplan.Line{Item: p.tipName, Qty: n})
+			}
 		}
 	}
-	if need := arrowtips - int(fleetrunner.PackCountOf(d, int(mastercraftplan.HeadlessID))); need > 0 && have(mastercraftplan.Headless) > 0 {
+	if need := arrowtips - int(fleetrunner.PackCountOf(d, int(mastercraftplan.HeadlessID))); arrowsDue && need > 0 && have(mastercraftplan.Headless) > 0 {
 		lines = append(lines, mastercraftplan.Line{Item: mastercraftplan.Headless, Qty: min(need, have(mastercraftplan.Headless))})
 	}
-	if bolts := min(have(pearlplan.Tips), have("Bolts")); bolts > 0 {
+	if bolts := min(have(pearlplan.Tips), have("Bolts")); boltsDue && bolts > 0 {
 		lines = append(lines, mastercraftplan.Line{Item: pearlplan.Tips, Qty: bolts}, mastercraftplan.Line{Item: "Bolts", Qty: bolts})
 	}
 	if shafts := min(have(mastercraftplan.Feather), have(mastercraftplan.ArrowShaft)); shafts > 0 {

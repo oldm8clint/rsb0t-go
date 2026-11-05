@@ -100,6 +100,8 @@ type cannonRun struct {
 	d    *fleetrunner.Deps
 	plan mastercraftplan.CannonballPlan
 	hold func() bool
+	// say replaces b.logf when b is nil (the fleet role).
+	say func(ctx *Context, format string, args ...any)
 
 	trips, bars, balls, xp, fails int
 	// finished says the batch is smelted or the bank holds no bar: the round is complete, not cut short. refused says the furnace or the
@@ -108,11 +110,20 @@ type cannonRun struct {
 	reason, lastFailedWhy        string
 }
 
+// logf logs through the round's own prefix, or through say when a bot other than MasterCrafter drives the run.
+func (r *cannonRun) logf(format string, args ...any) {
+	if r.say != nil {
+		r.say(r.ctx, format, args...)
+		return
+	}
+	r.b.logf(r.ctx, format, args...)
+}
+
 // failed notes a trip that came to nothing and says whether the round gives up now.
 func (r *cannonRun) failed(why string) bool {
 	r.fails++
 	r.lastFailedWhy = why
-	r.b.logf(r.ctx, "cannonballs: trip failed (%d in a row): %s", r.fails, why)
+	r.logf("cannonballs: trip failed (%d in a row): %s", r.fails, why)
 	if r.fails >= masterCannonFails {
 		r.reason, r.transient = fmt.Sprintf("%d trips in a row failed: %s", r.fails, why), true
 		return true
@@ -123,76 +134,82 @@ func (r *cannonRun) failed(why string) bool {
 
 // loop is the trips, until the batch is smelted, the bank holds no bar, the hold ends the round or trips keep failing.
 func (r *cannonRun) loop() {
-	for {
-		if !r.hold() {
-			return
-		}
-		remaining := r.plan.Bars - r.bars
-		if remaining <= 0 {
-			r.finished, r.reason = true, fmt.Sprintf("the batch of %d bars is smelted", r.plan.Bars)
-			return
-		}
-		kit, opened := masterCannonKitVisit(r.d, remaining)
-		switch {
-		case !opened:
-			if r.failed("the Falador west bank would not open") {
-				return
-			}
-			continue
-		case kit.NoMould:
-			r.refused, r.reason = true, "no Ammo mould in the pack or the bank (it cannot be traded: Nulodion's shop sells one after Dwarf Cannon)"
-			return
-		case kit.Err != "" && kit.Drew == 0:
-			if r.failed("the bank visit: " + kit.Err) {
-				return
-			}
-			continue
-		case kit.Drew == 0:
-			r.finished, r.reason = true, "no Steel bar left in the bank to smelt"
-			return
-		}
-		r.trips++
-		furn, ok := masterCannonFindFurnace(r.d, mastercraftplan.JewelleryWorkBank, mastercraftplan.JewelleryFurnaceRadius)
-		if !ok {
-			if r.failed(fmt.Sprintf("no %q with a %q option within %d tiles of the Falador west bank in the loc index", mastercraftrunner.FurnaceName, mastercraftrunner.FurnaceOp, mastercraftplan.JewelleryFurnaceRadius)) {
-				return
-			}
-			continue
-		}
-		if !masterCannonApproach(r.d, furn, func(dest tile.Tile, radius int, timeout time.Duration) bool {
-			return masterWalkTo(r.d, dest, radius, timeout)
-		}, 90*time.Second) {
-			if r.failed("could not reach a tile the furnace accepts a use from (at " + fleetrunner.HereIs(r.d) + ")") {
-				return
-			}
-			continue
-		}
-		res := masterCannonSmelt(r.d, furn, r.hold)
-		if res.Bars > 0 {
-			r.bars += res.Bars
-			r.balls += res.Balls
-			r.xp += res.XP
-			lootMade(r.ctx, loot.Forging(int(mastercraftplan.SteelBarID), mastercraftplan.SteelBar), res.Bars,
-				loot.Product(int(mastercraftplan.CannonballID), mastercraftplan.Cannonball, res.Balls))
-		}
-		r.b.logf(r.ctx, "cannonballs: trip %d: %s; round so far: %d of %d bars -> %d cannonballs, +%d Smithing XP",
-			r.trips, res.Describe(), r.bars, r.plan.Bars, r.balls, r.xp)
-		switch res.Reason {
-		case "held", "stopped":
-			r.reason = "stopped"
-			return
-		case "members", "level", "no-mould":
-			r.refused, r.reason = true, "the furnace refused: "+res.Reason
-			return
-		}
-		if res.Bars == 0 {
-			if r.failed("the furnace made nothing (" + res.Reason + ")") {
-				return
-			}
-			continue
-		}
-		r.fails = 0
+	for !r.step() {
 	}
+}
+
+// step is one trip of the loop (the bank visit, the walk to the furnace, the smelt); it reports whether the run is over. The fleet's
+// cannonball role (scarabswarm_cannonsmith.go) calls it once a pass, so the trawler and the rotation can take the account between trips.
+func (r *cannonRun) step() (over bool) {
+	if !r.hold() {
+		return true
+	}
+	remaining := r.plan.Bars - r.bars
+	if remaining <= 0 {
+		r.finished, r.reason = true, fmt.Sprintf("the batch of %d bars is smelted", r.plan.Bars)
+		return true
+	}
+	kit, opened := masterCannonKitVisit(r.d, remaining)
+	switch {
+	case !opened:
+		if r.failed("the Falador west bank would not open") {
+			return true
+		}
+		return false
+	case kit.NoMould:
+		r.refused, r.reason = true, "no Ammo mould in the pack or the bank (it cannot be traded: Nulodion's shop sells one after Dwarf Cannon)"
+		return true
+	case kit.Err != "" && kit.Drew == 0:
+		if r.failed("the bank visit: " + kit.Err) {
+			return true
+		}
+		return false
+	case kit.Drew == 0:
+		r.finished, r.reason = true, "no Steel bar left in the bank to smelt"
+		return true
+	}
+	r.trips++
+	furn, ok := masterCannonFindFurnace(r.d, mastercraftplan.JewelleryWorkBank, mastercraftplan.JewelleryFurnaceRadius)
+	if !ok {
+		if r.failed(fmt.Sprintf("no %q with a %q option within %d tiles of the Falador west bank in the loc index", mastercraftrunner.FurnaceName, mastercraftrunner.FurnaceOp, mastercraftplan.JewelleryFurnaceRadius)) {
+			return true
+		}
+		return false
+	}
+	if !masterCannonApproach(r.d, furn, func(dest tile.Tile, radius int, timeout time.Duration) bool {
+		return masterWalkTo(r.d, dest, radius, timeout)
+	}, 90*time.Second) {
+		if r.failed("could not reach a tile the furnace accepts a use from (at " + fleetrunner.HereIs(r.d) + ")") {
+			return true
+		}
+		return false
+	}
+	res := masterCannonSmelt(r.d, furn, r.hold)
+	if res.Bars > 0 {
+		r.bars += res.Bars
+		r.balls += res.Balls
+		r.xp += res.XP
+		lootMade(r.ctx, loot.Forging(int(mastercraftplan.SteelBarID), mastercraftplan.SteelBar), res.Bars,
+			loot.Product(int(mastercraftplan.CannonballID), mastercraftplan.Cannonball, res.Balls))
+	}
+	r.logf("cannonballs: trip %d: %s; round so far: %d of %d bars -> %d cannonballs, +%d Smithing XP",
+		r.trips, res.Describe(), r.bars, r.plan.Bars, r.balls, r.xp)
+	switch res.Reason {
+	case "held", "stopped":
+		r.reason = "stopped"
+		return true
+	case "members", "level", "no-mould":
+		r.refused, r.reason = true, "the furnace refused: "+res.Reason
+		return true
+	}
+	if res.Bars == 0 {
+		if r.failed("the furnace made nothing (" + res.Reason + ")") {
+			return true
+		}
+		return false
+	}
+	r.fails = 0
+	return false
 }
 
 // cannonballRound is the cannonball round: see the file comment.

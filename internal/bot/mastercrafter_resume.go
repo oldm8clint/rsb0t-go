@@ -89,7 +89,7 @@ func (b *masterCrafterBot) resumesHere(ctx *Context, dec mastercraftplan.Decisio
 	case mastercraftplan.ModeCannonballs:
 		// The Steel bars are in this account's own bank: a resumed cannonball round on the Falador side starts at the Falador west bank.
 		return b.cannonResumesHere(ctx)
-	case mastercraftplan.ModeSmith:
+	case mastercraftplan.ModeSmith, mastercraftplan.ModePlatebody:
 		// The bars are in this account's own bank: a resumed anvil round walks to Varrock west, not to the post.
 		x, z, level, ok := ctx.Session.State().Tile()
 		return ok && level == 0 && tile.Chebyshev(tile.Tile{X: x, Z: z}, mastercraftrunner.VarrockWestBank) <= smithResumeNear

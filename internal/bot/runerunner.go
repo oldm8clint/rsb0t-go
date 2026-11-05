@@ -27,6 +27,7 @@ import (
 
 	"rsb0t-go/internal/phaselog"
 	"rsb0t-go/internal/randomevents"
+	"rsb0t-go/internal/scripts/combatrunner"
 	"rsb0t-go/internal/scripts/fleetplan"
 	"rsb0t-go/internal/scripts/fleetrunner"
 	"rsb0t-go/internal/scripts/marketstockplan"
@@ -78,6 +79,9 @@ var RuneRunnerSettings = settings.Schema{
 	"swarmResumeRunes": {Type: settings.TypeNumber, Default: float64(runerunnerplan.DefaultSwarmResumeRunes),
 		Min: settings.Float(1), Max: settings.Float(runerunnerplan.MaxSwarmResumeRunes), Label: "Circuit worth a walk (runes)",
 		Help: "the runes a whole circuit is estimated to buy under the caps at which the runner leaves (or does not start) ScarabSwarm"},
+	"swarmReadyPercent": {Type: settings.TypeNumber, Default: float64(runerunnerplan.DefaultSwarmReadyPercent),
+		Min: settings.Float(0), Max: settings.Float(100), Label: "Share of a full-shelf circuit worth a walk (percent; 0 = off)",
+		Help: "the circuit is walked only once it is estimated to buy this share of what it would buy with every shelf regrown (and swarmResumeRunes); a mule short of a scarce rune halves the share"},
 	"trawlerStintMinutes": {Type: settings.TypeNumber, Default: float64(runerunnerplan.DefaultTrawlerStintMinutes),
 		Min: settings.Float(0), Max: settings.Float(runerunnerplan.MaxTrawlerStintMinutes), Label: "Trawler stint between rounds (minutes; 0 = until the block ends)",
 		Help: "while master's trawler block is on, the account joins the crew only between two rounds (the new round's delivery made, no shop visited) and stays this long, about one game at 20"},
@@ -193,6 +197,13 @@ var RuneRunnerSettings = settings.Schema{
 	"ammoSlotReserve": {Type: settings.TypeNumber, Default: float64(runerunnerplan.DefaultAmmoSlotReserve),
 		Min: settings.Float(0), Max: settings.Float(runerunnerplan.MaxAmmoSlotReserve), Label: "Pack slots an ammo stop leaves free for runes",
 		Help: "a new ammo stack is started only while a slot beyond this many is free"},
+	"rangingGuildShop": {Type: settings.TypeBoolean, Default: runerunnerplan.DefaultRangingGuildShop, Label: "Buy at the Ranging Guild's bow shop once Ranged is 40",
+		Help: "needs ammoBuy and Hickton: Dargaud's Arrow shafts and arrowtips, after each Hickton stop; the stop is placed only while the account's Ranged level opens the guild door"},
+	"rangedTo40": {Type: settings.TypeBoolean, Default: runerunnerplan.DefaultRangedTo40, Label: "Train Ranged to 40 in the ScarabSwarm phase",
+		Help: "while Ranged is under 40 the ScarabSwarm phase runs with the cannon-free Ranged stint on (endgameTrainRanged, endgameRangedRun, endgameRangedBow, goal 40) unless swarmSettings writes those keys itself; it is ScarabSwarm's own held-graduate stint, so it starts only where that does"},
+	"vialTrips": {Type: settings.TypeNumber, Default: float64(runerunnerplan.DefaultVialTrips),
+		Min: settings.Float(0), Max: settings.Float(runerunnerplan.MaxVialTrips), Label: "Vial of water bank trips per Aemad visit (0 = off)",
+		Help: "needs Vial of water in ammoItems and Aemad in the ring: the runner banks the pack at East Ardougne and goes back for the next load until the shelf is depleted or this many trips are made"},
 	"trawlerRope": {Type: settings.TypeBoolean, Default: runerunnerplan.DefaultTrawlerRope, Label: "Stock the mule with Rope for the Fishing Trawler's net",
 		Help: "needs ammoBuy: adds Port Khazard (the trawler store, 30 Rope a world, five a minute) and Aemad with the Lundail pairs, Ned (Draynor, 15 coins a rope, no shelf) with the Betty pairs, and Rope to the ammo parts, whatever ammoShops and ammoItems list"},
 	"ropeFloor": {Type: settings.TypeNumber, Default: float64(runerunnerplan.DefaultRopeFloor),
@@ -377,7 +388,12 @@ type runeRunnerBot struct {
 	baseRunes    []string
 	baseCaps     runerunnerplan.Caps
 	shortageLine string
-	shortageAt   time.Time
+	// muleShort is the mule being out of a scarce rune as the last refreshShortage read it: the circuit is walked at half the swarmReadyPercent share. circuitWorthAtSeam replaces the projected circuit worth in a test.
+	muleShort bool
+	// ranged is the account's current Ranged level (noteRanged): the Ranging Guild's door.
+	ranged             int
+	circuitWorthAtSeam func(ctx *Context, after time.Duration) int
+	shortageAt         time.Time
 	// magic is the account's CURRENT Magic level as last read (noteMagic): the Wizards' Guild
 	// door's gate. 0 until the server has reported it, which keeps the guild out.
 	magic int
@@ -599,6 +615,16 @@ func (b *runeRunnerBot) noteMagic(ctx *Context) {
 	}
 }
 
+// noteRanged reads the account's CURRENT Ranged level (the Ranging Guild's door) into b.ranged. An unreported skill leaves the last reading.
+func (b *runeRunnerBot) noteRanged(ctx *Context) {
+	if ctx == nil || ctx.Session == nil {
+		return
+	}
+	if sk, ok := ctx.Session.State().Skill(combatrunner.RangedStat); ok {
+		b.ranged = sk.Level
+	}
+}
+
 // shopsNow is the shops a round is planned over: the shops setting less a site whose door this
 // account's current Magic does not open (runerunnerplan.EligibleShops). The Wizards' Guild joins
 // the circuit at the first round planned at Magic 66 (wizguild, a user request).
@@ -772,6 +798,14 @@ func (b *runeRunnerBot) newRotationRound(ctx *Context, area runerunnerplan.Area,
 	m, _ := b.muleWorld(ctx)
 	shops := b.shopsNow(ctx)
 	placed, left := b.set.AmmoPlaced(shops)
+	b.noteRanged(ctx)
+	if b.set.AmmoOn() {
+		before := len(placed)
+		placed = runerunnerplan.RangingGuildSites(placed, b.ranged, b.set.RangingGuildShop)
+		if why := runerunnerplan.DargaudWhy(b.ranged); b.set.RangingGuildShop && len(placed) <= before && why != "" {
+			b.sayEvery(ctx, "guildgate", time.Hour, "ranged %d: the Ranging Guild shop is left out of the round: %s", b.ranged, why)
+		}
+	}
 	if len(left) > 0 {
 		b.sayEvery(ctx, "ammoleft", time.Hour, "ammo: left out of the round: %s", strings.Join(left, "; "))
 	}

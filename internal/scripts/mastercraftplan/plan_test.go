@@ -474,9 +474,9 @@ func orderSettings() Settings {
 // this account's together, and ScarabSwarm between rounds.
 func TestDefaultThresholdsAreTheOwners(t *testing.T) {
 	set := DefaultSettings()
-	if set.GemThreshold != 20000 || set.BowThreshold != 20000 || set.PearlThreshold != 20000 || set.BoltThreshold != 20000 ||
-		set.ArrowThreshold != 20000 || set.Idle != IdleSwarm || ChestStartKeys != 400 {
-		t.Fatalf("defaults: %+v, chest %d", set, ChestStartKeys)
+	if set.GemThreshold != 20000 || set.BowThreshold != 20000 || set.PearlThreshold != 20000 || set.BoltThreshold != 100000 ||
+		set.ArrowThreshold != 100000 || set.Idle != IdleSwarm || set.Sched.ChestStartKeys != 1000 {
+		t.Fatalf("defaults: %+v", set)
 	}
 	now := time.Date(2026, 10, 6, 14, 0, 0, 0, time.UTC)
 	snap := func(stock map[string]int, ownUncut int) Snapshot {
@@ -596,6 +596,18 @@ func TestKnownKeysAreAllDecoded(t *testing.T) {
 		KeyTrawler: true, KeyTrawlerQuorum: 35, KeyTrawlerFoodLow: 4000, KeyTrawlerFoodHigh: 15000,
 		// cannonballs.go
 		KeyCannonballTarget: 40000, KeyCannonballBatch: 250, KeyCannonballMinBars: 50,
+		// roundlimit.go
+		KeyStaves: false, KeyStavesMinStaff: 6000, KeyStavesMinOrbs: 7000, // staves.go
+		KeyPlatebody: false, KeyPlatebodyMinBars: 50, KeyPlatebodyKit: 2000, // platebody.go
+		KeySuperheatRoundMinutes: 45, KeyPlatebodyRoundMinutes: 50, KeyRoundLimitPauseMinutes: 30,
+		// schedule.go
+		KeyTrawlerBlockMinutes: 150, KeyTrawlerRestMinutes: 20, KeySteelStart: 8000, KeySteelStop: 12000, KeySteelMinCasts: 400, KeyAdamantRoundMinutes: 45,
+		KeyPauseMithrilMinutes: 40, KeyPauseAdamantMinutes: 50, KeyPausePlatebodyMinutes: 55, KeyHerbEveryMinutes: 1200,
+		KeyOakMinutes: 100, KeyOakEveryMinutes: 1300, KeyChestStartKeys: 900,
+		// bones.go
+		KeyBones: false, KeyBonesMinStock: 3000, KeyBonesRound: 45, KeyBonesPause: 15,
+		// cannonrun.go
+		KeyCannonRunStart: 8000, KeyCannonRunBalls: 9000, KeyCannonRunCarry: 2500, KeyCannonRunStintMinutes: 80, KeyCannonRunBuy: false, KeyCannonRunAlchDuty: 60, KeyCannonRunReserve: 30000,
 	}
 	if len(sample) != len(KnownKeys()) {
 		t.Fatalf("sample has %d keys, KnownKeys %d: %v", len(sample), len(KnownKeys()), KnownKeys())
@@ -628,6 +640,7 @@ func TestKnownKeysAreAllDecoded(t *testing.T) {
 		s.Rune.Gateway == d.Rune.Gateway || s.Rune.Teleport == d.Rune.Teleport || s.Rune.Round == d.Rune.Round || s.Rune.BuyBudget == d.Rune.BuyBudget ||
 		s.Rune.DirectOps == d.Rune.DirectOps || s.Rune.OneWrite == d.Rune.OneWrite || s.Rune.LegCasts == d.Rune.LegCasts ||
 		s.SkillGoal == d.SkillGoal || len(s.PastGoal) == 0 || s.Trawler == d.Trawler || s.TrawlerQuorum == d.TrawlerQuorum || s.TrawlerFoodLow == d.TrawlerFoodLow || s.TrawlerFoodHigh == d.TrawlerFoodHigh ||
+		s.Bones == d.Bones || s.Sched.BonesMinStock == d.Sched.BonesMinStock || s.Sched.BonesRound == d.Sched.BonesRound || s.Sched.BonesPause == d.Sched.BonesPause ||
 		s.CannonballTarget == d.CannonballTarget || s.CannonballBatch == d.CannonballBatch || s.CannonballMinBars == d.CannonballMinBars {
 		t.Errorf("a key was ignored: %+v", s)
 	}
@@ -656,8 +669,8 @@ func TestPlanGemAskBulkFromBulkAtSapphires(t *testing.T) {
 // The owner's sapphire trigger (13 Oct 2026): from craftBulkAtSapphires (10,000) uncut sapphires in the mule a
 // gem round is due under GemThreshold too, and its ask is the mule's whole stock of every kind.
 func TestDecideGemsAtTenThousandSapphires(t *testing.T) {
-	if DefaultSettings().BulkAtSapphires != 10000 {
-		t.Fatalf("craftBulkAtSapphires default %d, want the owner's 10000", DefaultSettings().BulkAtSapphires)
+	if DefaultSettings().BulkAtSapphires != 20000 {
+		t.Fatalf("craftBulkAtSapphires default %d, want the owner's 20000", DefaultSettings().BulkAtSapphires)
 	}
 	now := time.Date(2026, 10, 13, 9, 0, 0, 0, time.UTC)
 	set := orderSettings()

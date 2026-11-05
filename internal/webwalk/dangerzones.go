@@ -105,10 +105,10 @@ var KnownDangerZones = []DangerZone{
 	{
 		ID:                      "wilderness",
 		Label:                   "Wilderness",
-		Help:                    "Everything north of the Wilderness ditch and the Wilderness dungeons under it. Not in the TS catalog: it keeps lever and portal hops from routing an account through PvP land. Walks that start or end inside still go, but never deeper than their deepest endpoint (7 Oct 2026: a combat-28 account bound for the chaos altar at 3239,3607 was routed through the Ardougne lever to 3154,3924 and killed).",
+		Help:                    "Everything north of the Wilderness ditch and the Wilderness dungeons under it. Not in the TS catalog: it keeps lever and portal hops from routing an account through PvP land. Walks that start or end inside still go, but never more than 40 rows deeper than their deepest endpoint (the chaos altar's hut at 3239,3607 is entered from the north, the planned route reaches z 3634, 27 rows past it, so the first margin of 16 left it unreachable for every account: 5 Nov 2026, 138 Merlin walks; 7 Oct 2026: a combat-28 account bound for the chaos altar at 3239,3607 was routed through the Ardougne lever to 3154,3924 and killed).",
 		Automatic:               true,
 		AllowWhenEndpointInside: true,
-		DeeperThanEndpoint:      16,
+		DeeperThanEndpoint:      40,
 		Rects: []Rect{
 			{MinX: 2944, MaxX: 3391, MinZ: 3523, MaxZ: 3967, Level: AllLevels},
 			{MinX: 2944, MaxX: 3391, MinZ: 9923, MaxZ: 10367, Level: AllLevels},

@@ -67,6 +67,8 @@ func (b *masterCrafterBot) supplySnapshot(ctx *Context, s *mastercraftplan.Snaps
 	d := b.deps(ctx)
 	if ctx.Config != nil && ctx.Components != nil {
 		s.FireStaff = mastercraftrunner.FireStaffWorn(d) || mastercraftrunner.FireStaffIn(d, bank) != 0
+		gw, gp, gb := mastercraftrunner.GauntletState(d, bank)
+		s.GoldGauntlets = gw || gp > 0 || gb > 0
 	}
 	if bank != nil {
 		s.OwnSuperheat = mastercraftrunner.SuperheatOwn(bank)
@@ -217,8 +219,8 @@ func (b *masterCrafterBot) shopRound(ctx *Context, d *fleetrunner.Deps, started 
 // ---- superheating ----
 
 // superheatRound is the superheat round: the fire staff, the ores, the casts, the bars to the mule.
-func (b *masterCrafterBot) superheatRound(ctx *Context, d *fleetrunner.Deps, started time.Time) masterRoundOutcome {
-	out := masterRoundOutcome{Mode: mastercraftplan.ModeSuperheat}
+func (b *masterCrafterBot) superheatRound(ctx *Context, d *fleetrunner.Deps, started time.Time, dec mastercraftplan.Decision) masterRoundOutcome {
+	out := masterRoundOutcome{Mode: mastercraftplan.ModeSuperheat, Phase: dec.Heat.Name}
 	post, why, ok := b.muleHere(ctx)
 	if !ok {
 		out.Transient, out.Why = true, why
@@ -248,17 +250,55 @@ func (b *masterCrafterBot) superheatRound(ctx *Context, d *fleetrunner.Deps, sta
 	worn := mastercraftrunner.FireStaffWorn(d)
 	smithing, _ := skillLevel(ctx, mastercraftrunner.SmithingStat)
 	// 2b. Gold bars give 2.5x the Smithing XP with the goldsmith gauntlets worn (mastercraftplan/gauntlets.go).
-	b.goldGauntlets(ctx, d, post, v.Banked, smithing)
-	reason := ""
-	hold := b.roundHold(ctx, d, started, &reason)
-	asks, bars := 0, 0
+	heatSet := b.set
+	heatSet.GauntletsHeld = b.goldGauntlets(ctx, d, post, v.Banked, smithing)
+	// The phase's own bars (schedule.go: Steel first, then Mithril and Gold, Adamantite last); a resume under the old
+	// craftSuperheatBars setting is still restricted by it.
+	if len(dec.Heat.Bars) > 0 {
+		heatSet.SuperheatBars = dec.Heat.Bars
+	}
+	b.logf(ctx, "superheat: %s phase: bars %v, limit %s", firstNonEmpty(dec.Heat.Name, "(none)"), heatSet.SuperheatBars, dec.Heat.Budget)
+	// Natures beyond a round's share go back to the mule, for the fleet's alching.
 	own := mastercraftrunner.SuperheatOwn(v.Banked)
+	if extra := own(mastercraftplan.NatureRune) + fleetrunner.CountPackNamed(d, mastercraftplan.NatureRune) - mastercraftplan.SuperheatNatureAsk; extra > mastercraftplan.SuperheatNatureAsk {
+		handed, why := b.handOverNatures(ctx, d, post, extra)
+		b.logf(ctx, "superheat: %d Nature runes over this round's share, %d went back to %s %s", extra, handed, b.mule, why)
+		if v = mastercraftrunner.FullVisit(d, post, &qb, nil, nil, false); !v.Opened || v.Err != "" {
+			out.Transient, out.Why = true, "the bank at the mule's post: "+v.Err
+			return out
+		}
+		own = mastercraftrunner.SuperheatOwn(v.Banked)
+	}
+	reason := ""
+	baseHold := b.roundHold(ctx, d, started, &reason)
+	// The round's own time limit (mastercraftplan/roundlimit.go): applies while the bar being cast is Mithril only, so
+	// Adamantite and Runite run until the ore is gone. curBar is the bar the next load will make.
+	curBar, limited, steelDone := "", false, false
+	asks, bars, madeNow := 0, 0, 0
+	hold := func() bool {
+		if !baseHold() {
+			return false
+		}
+		if mastercraftplan.LimitReached(b.set, mastercraftplan.ModeSuperheat, curBar, started, time.Now()) {
+			limited = true
+			reason = "the batch's time (craftSuperheatRoundMinutes, craftAdamantRoundMinutes) is used up"
+			return false
+		}
+		// The Steel phase ends where the combined stock reaches craftSteelStop (a user request), counting what this round made.
+		if dec.Heat.SteelReached(madeNow) {
+			steelDone = true
+			reason = fmt.Sprintf("the combined Steel bars reached craftSteelStop %d (%d at the start, %d made)", dec.Heat.SteelStop, dec.Heat.SteelAtStart, madeNow)
+			return false
+		}
+		return true
+	}
+	curBar = mastercraftplan.PlanSuperheat(heatSet, smithing, own, worn).Bar.Name
 	ask := func() bool {
 		if asks >= masterSupplyAsks {
 			return false
 		}
 		mule := b.muleStock(ctx)
-		p := mastercraftplan.PlanSuperheat(b.set, smithing, func(item string) int {
+		p := mastercraftplan.PlanSuperheat(heatSet, smithing, func(item string) int {
 			n := own(item)
 			if mule != nil {
 				if m, ok := mule(item); ok {
@@ -276,7 +316,7 @@ func (b *masterCrafterBot) superheatRound(ctx *Context, d *fleetrunner.Deps, sta
 		b.logf(ctx, "superheat: asked %s for %s: %s", b.mule, describeLines(lines), masterDescribe(a.Got))
 		return a.Traded > 0 && !a.Stopped
 	}
-	if !ask() && mastercraftplan.PlanSuperheat(b.set, smithing, own, worn).Casts == 0 {
+	if !ask() && mastercraftplan.PlanSuperheat(heatSet, smithing, own, worn).Casts == 0 {
 		out.Why = "nothing to superheat: no ore and runes in the bank, and the mule gave none"
 		return out
 	}
@@ -285,14 +325,18 @@ func (b *masterCrafterBot) superheatRound(ctx *Context, d *fleetrunner.Deps, sta
 	// own bank and pack can make nothing more (before 6 Oct 2026 the Nature runes drawn into the pack
 	// read as none, so every load asked the mule and the round ended after two loads).
 	pick := func(stock mastercraftplan.SuperheatStock) (mastercraftplan.Bar, bool) {
-		p := mastercraftplan.PlanSuperheat(b.set, smithing, stock, worn)
+		p := mastercraftplan.PlanSuperheat(heatSet, smithing, stock, worn)
+		curBar = p.Bar.Name
 		return p.Bar, p.Casts > 0
 	}
 	keep := func(id int32) bool { return previous != 0 && id == previous }
 	usedUp, fails := false, 0
 	for hold() {
 		run := mastercraftrunner.SuperheatRun(d, post, mastercraftrunner.HeatOptions{Pick: pick, Keep: keep, Staff: worn, Hold: hold, Quick: &qb,
-			OnMade: func(bar mastercraftplan.Bar, n int) { lootSuperheat(ctx, bar, n, worn) }})
+			OnMade: func(bar mastercraftplan.Bar, n int) {
+				madeNow += n
+				lootSuperheat(ctx, bar, n, worn)
+			}})
 		b.logf(ctx, "superheat: %s", run.Describe())
 		for _, m := range run.Made {
 			bars += m.Casts
@@ -319,9 +363,32 @@ func (b *masterCrafterBot) superheatRound(ctx *Context, d *fleetrunner.Deps, sta
 	}
 	b.ledger.BarsMade += bars
 	out.Produced = bars
+	out.SteelOpen = dec.Heat.Name == mastercraftplan.PhaseSteel && !steelDone && !usedUp
+	if limited && !usedUp {
+		out.LimitReached = true
+		pause := b.set.RoundLimitPause
+		if dec.Heat.Name == mastercraftplan.PhaseMithril {
+			pause = b.set.Sched.PauseMithril
+		} else if dec.Heat.Name == mastercraftplan.PhaseAdamant {
+			pause = b.set.Sched.PauseAdamant
+		}
+		b.logf(ctx, "superheat: %s", mastercraftplan.LimitWhy(mastercraftplan.ModeSuperheat, dec.Heat.Budget, pause))
+	}
 	if previous != 0 && staff != 0 {
 		mastercraftrunner.Rewield(d, previous)
 		previous = 0
+	}
+	products := mastercraftrunner.BarProducts()
+	if steelDone && !usedUp {
+		// The Steel phase ended at its stock: the Steel bars go to the mule (the cannonball fleet draws them there); the other bars
+		// stay for the platebody round.
+		products = nil
+		for _, p := range mastercraftrunner.BarProducts() {
+			if p.Name == "Steel bar" {
+				products = append(products, p)
+			}
+		}
+		usedUp = true
 	}
 	if !usedUp {
 		// The owner (6 Oct 2026): the bars go to the mule when the ore is used up, not after every
@@ -329,8 +396,8 @@ func (b *masterCrafterBot) superheatRound(ctx *Context, d *fleetrunner.Deps, sta
 		out.Why = fmt.Sprintf("%d bars superheated (%s); the bars stay in the bank until the ore is used up", bars, firstNonEmpty(reason, "stopped"))
 		return out
 	}
-	out.Why = fmt.Sprintf("%d bars superheated (the ore is used up)", bars)
-	ho := b.handOver(ctx, d, post, mastercraftrunner.BarProducts())
+	out.Why = fmt.Sprintf("%d bars superheated (%s)", bars, firstNonEmpty(reason, "the ore is used up"))
+	ho := b.handOver(ctx, d, post, products)
 	out.Handed = mastercraftrunner.Total(ho.Handed)
 	out.HandoverTried, out.HandoverFailed = true, ho.failed()
 	b.ledger.PendingDeliver = b.ledger.PendingDeliver || out.HandoverFailed
@@ -343,7 +410,7 @@ func (b *masterCrafterBot) superheatRound(ctx *Context, d *fleetrunner.Deps, sta
 // goldGauntlets wears the goldsmith gauntlets when gold ore may be superheated (craftSuperheatGold on, Smithing
 // 40): worn already, from the pack, or from the account's own bank, and says what a gold bar will give, or
 // what is missing (they are Family Crest's reward, and the quest is not built). It returns whether they are
-// worn after.
+// held (worn, packed or banked), which is what lets a Gold bar into the plan.
 func (b *masterCrafterBot) goldGauntlets(ctx *Context, d *fleetrunner.Deps, post tile.Tile, bank []gamestate.SlotItem, smithing int) bool {
 	inPlay := mastercraftplan.GoldInPlay(b.set, smithing)
 	worn, inPack, inBank := false, 0, 0
@@ -351,26 +418,28 @@ func (b *masterCrafterBot) goldGauntlets(ctx *Context, d *fleetrunner.Deps, post
 		worn, inPack, inBank = mastercraftrunner.GauntletState(d, bank)
 	}
 	act := mastercraftplan.GauntletStep(inPlay, worn, inPack, inBank)
+	// held gates Gold bars into the plan: worn, packed or banked (a failed wear still leaves them held).
+	held := worn || inPack > 0 || inBank > 0
 	switch act {
 	case mastercraftplan.GauntletsNotNeeded:
 		return false
 	case mastercraftplan.GauntletsWorn:
 		b.logf(ctx, "superheat: %s", mastercraftplan.GauntletLine(act, nil))
-		return true
+		return held
 	case mastercraftplan.GauntletsMissing:
 		levels := map[string]int{}
 		for name, stat := range map[string]int{"Mining": essencerunner.MiningStat, "Crafting": gemrunner.CraftingStat, "Smithing": mastercraftrunner.SmithingStat, "Magic": mastercraftrunner.MagicStat} {
 			levels[name], _ = skillLevel(ctx, stat)
 		}
 		b.logf(ctx, "superheat: %s", mastercraftplan.GauntletLine(act, mastercraftplan.FamilyCrestShort(levels)))
-		return false
+		return held
 	}
 	b.logf(ctx, "superheat: %s", mastercraftplan.GauntletLine(act, nil))
 	if why := mastercraftrunner.WearGauntlets(d, post); why != "" {
 		b.logf(ctx, "superheat: gold: the gauntlets are not worn: %s (the gold bars give the plain Smithing XP)", why)
-		return false
+		return held
 	}
-	return true
+	return held
 }
 
 // fireStaff wields a Staff of fire: one already worn, else from the bank, else from the mule, else
@@ -417,11 +486,14 @@ func (b *masterCrafterBot) fireStaffOpt(ctx *Context, d *fleetrunner.Deps, post 
 	return mastercraftrunner.WieldFireStaff(d, post)
 }
 
-// lootSuperheat reports bars superheated on the Magic card, the row saying whether a fire staff paid
-// the Fire runes (loot/magic.go). Not on the Smithing card as well: the panel sums every card, and
-// one bar must be counted once.
+// lootSuperheat reports bars superheated on the Smithing card (the bars, the row saying whether a fire
+// staff paid the Fire runes: loot/magic.go) and the casts on the Magic card (events, cost, Magic XP).
+// The Magic row is a mirror that carries no items and no value, so one bar is valued once.
 func lootSuperheat(ctx *Context, bar mastercraftplan.Bar, n int, staff bool) {
 	lootMade(ctx, loot.SuperheatCast(int(bar.BarID), bar.Ore, staff), n, loot.Product(int(bar.BarID), bar.Name, n))
+	if d := loot.SuperheatCastDrop(int(bar.BarID), bar.Ore, n, staff); d.Events > 0 && ctx != nil && ctx.Loot != nil {
+		ctx.Loot(d)
+	}
 }
 
 // describeLines is a kit's lines for a log.

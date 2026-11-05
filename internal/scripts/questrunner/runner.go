@@ -25,6 +25,7 @@
 package questrunner
 
 import (
+	"errors"
 	"fmt"
 	"slices"
 	"sort"
@@ -109,6 +110,9 @@ type Deps struct {
 	// reports whether the account left instead: ScarabSwarm teleports out of a fight its bites cannot outrun on a lagging server
 	// (scarabrunner.LagEscape, lagescape-1018). It must not walk: the step's own walk is running. Nil never leaves.
 	Escape func() bool
+
+	// Pair is the account's link to its partner for a two-account quest (pair.go); nil is no partner, which a pair quest answers by waiting.
+	Pair PairLink
 
 	// eatMu serialises this account's eating (EatIfNeeded): the engine's sustain and a step's
 	// own eating must not both send an Eat for one bite. It lives on the account's Deps, so it
@@ -725,8 +729,9 @@ func PackVisible(d *Deps) bool {
 // NPCs
 // ---------------------------------------------------------------------------
 
-// TalkOps are the op labels that open a conversation, in the order to try them.
-var TalkOps = []string{"Talk-to", "Talk", "Speak-to"}
+// TalkOps are the op labels that open a conversation, in the order to try them. "Talk to" (a space, not a hyphen) is the Fremennik
+// content's own label (viking.npc op1=Talk to): Thora the Barkeep offered no talk op to 6 accounts on Sigmund's trial, 5 Nov 2026.
+var TalkOps = []string{"Talk-to", "Talk to", "Talk", "Speak-to"}
 
 // FindNpc finds the NPC an NpcStop names, by exact ID when the stop gives one and by display
 // name otherwise, within radius of the account.
@@ -1095,15 +1100,43 @@ func ReadStatus(d *Deps, journalName string) questplan.Status {
 	}
 }
 
+// HasQuestTab reports whether the quest named journalName has a tab in the quest list this client reads (the table of
+// internal/quests). A quest that has none (the Barcrawl miniquest) cannot be read from the server, so ReadStatus answers
+// StatusUnknown for it for ever and its completion is the quest's own Done (Engine.priorDone).
+func HasQuestTab(journalName string) bool {
+	_, ok := quests.ComponentID(journalName)
+	return ok
+}
+
 // QuestPoints reads the total quest-point varp (101), which IS transmitted and is therefore
 // the one numeric quest fact this client can see.
 func QuestPoints(d *Deps) int { return quests.Points(d.Session.State()) }
+
+// journalAttempts is how many times ReadJournal clicks the quest row before it gives up.
+const journalAttempts = 3
 
 // ReadJournal opens the quest log and returns its rendered lines. It is the expensive oracle
 // and is only used where nothing cheaper distinguishes a branch — for the two ported quests,
 // only by the harness, as evidence.
 func ReadJournal(d *Deps, journalName string) ([]string, error) {
-	lines, err := quests.Journal(d.Session, d.Components, journalName, waiterFor(d))
+	// The engine runs the quest tab's button as a PROTECTED script, which it drops silently while the player
+	// has a main or chat modal open (a shop or dialogue a failed step left up, which the client may not even
+	// show) or is delayed: live 6 Nov 2026 a Waterfall run at East Ardougne market read "the interface did not
+	// respond" every few seconds after the Baker's shop failed to open. Close whatever is up before the click,
+	// and on a miss close again (the server's view can differ from the client's), wait a tick and retry.
+	var lines []string
+	var err error
+	for attempt := 0; attempt < journalAttempts; attempt++ {
+		if !ClearLeftoverModal(d) && attempt > 0 {
+			_ = actions.CloseModal(d.Session)
+			d.Delay(600 * time.Millisecond)
+		}
+		lines, err = quests.Journal(d.Session, d.Components, journalName, waiterFor(d))
+		if err == nil || !errors.Is(err, actions.ErrNotConfirmed) {
+			break
+		}
+		d.Delay(1200 * time.Millisecond)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -1257,6 +1290,11 @@ type Result struct {
 // failure the watchdog exists to prevent, reached through the one door the watchdog does not
 // cover. Ported from QuestEngine.ts's separate WAIT_PARK counter.
 const WaitPark = 15
+
+// WaitParkAny parks a quest after this many wait steps in a row of any reason: two reasons that alternate
+// (the 6 Nov Waterfall run swapped "journal not read" and "tomb kit short" every few seconds) never reach
+// WaitPark on one key.
+const WaitParkAny = 40
 
 func Run(d *Deps, module questplan.Module, budget time.Duration) Result {
 	e := &Engine{D: d}

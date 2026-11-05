@@ -116,6 +116,10 @@ func TestPlanSuperheatHighestBarFirstAndNoGold(t *testing.T) {
 		t.Errorf("total %d, want 40 (gold and Iron bars left out)", p.Total)
 	}
 	set.SuperheatGold = true
+	if q := PlanSuperheat(set, 99, have(map[string]int{"Gold ore": 5000, "Nature rune": 1000}), true); q.Bar.Name == "Gold bar" {
+		t.Errorf("gold planned with no gauntlets: %+v", q)
+	}
+	set.GauntletsHeld = true
 	if q := PlanSuperheat(set, 99, have(map[string]int{"Gold ore": 5000, "Nature rune": 1000}), true); q.Bar.Name != "Gold bar" {
 		t.Errorf("with gold allowed: %+v", q)
 	}

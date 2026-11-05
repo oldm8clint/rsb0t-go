@@ -366,12 +366,23 @@ const (
 	KitFremThorvald    = "frem-thorvald-kit"
 )
 
+// VarrockSwordShop is the Varrock sword shop's keeper (content varrock.npc [swordshop1], spawn m50_53 3203,3397), the nearest shop that sells a
+// Mithril sword (stock5, 3 at 3000 coins). The kit had no source for it: on 5 Nov 2026 the Sigli kit "could not be filled" on every account
+// that reached it ("1 Mithril sword: the mule publishes none; no ground, skill or shop source listed"), and the Manni kit stalled the same
+// way on a Tinderbox that the Lumbridge and Varrock general stores sell for a coin.
+var VarrockSwordShop = ShopRef{Npc: "Shop keeper", NpcID: 551, Anchor: tile.Tile{X: 3203, Z: 3397}}
+
+// MithrilSwordPrice is the sword shop's base price (varrock.inv [swordshop] stock5=mithril_sword,3,3000).
+const MithrilSwordPrice = 3000
+
 func fremKit(trial FremTrial, s Snapshot) []KitLine {
 	switch trial {
 	case TrialManni:
 		kit := []KitLine{
 			{ID: ObjBeer, Name: "Beer", Qty: 1},
-			{ID: ObjTinderbox, Name: "Tinderbox", Qty: 1},
+			{ID: ObjTinderbox, Name: "Tinderbox", Qty: 1, Sources: []Source{
+				{Kind: SourceShop, Shop: LumbridgeStore, Price: 1, Note: "Lumbridge general store keeps 2"},
+				{Kind: SourceShop, Shop: VarrockGenStore, Price: 1, Note: "Varrock general store keeps 2"}}},
 		}
 		// The poison salesman's low alcohol keg is the only thing Manni's trial buys, and it is bought once: an
 		// account that holds one (the bank step below takes a banked one out first) needs no coins, and one that
@@ -394,7 +405,8 @@ func fremKit(trial FremTrial, s Snapshot) []KitLine {
 		return kit
 	case TrialSigli:
 		return []KitLine{
-			{ID: ObjMithrilSword, Name: "Mithril sword", Qty: 1, Worn: true},
+			{ID: ObjMithrilSword, Name: "Mithril sword", Qty: 1, Worn: true, Sources: []Source{
+				{Kind: SourceShop, Shop: VarrockSwordShop, Price: MithrilSwordPrice, Note: "Varrock's sword shop keeps 3 (3000 coins each), restocking slowly"}}},
 			{ID: 385, Name: "Shark", Qty: 10},
 		}
 	case TrialSigmund:

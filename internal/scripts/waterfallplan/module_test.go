@@ -439,3 +439,16 @@ func TestSurplusFoodIsBankedBeforeTheDungeonKit(t *testing.T) {
 		t.Fatalf("8 cakes (the trip's own food) were banked: %s", step.Describe())
 	}
 }
+
+// A kit the provisioning round could not fill parks the quest for a bounded time instead of waiting, which
+// spun every few seconds at East Ardougne market on 6 Nov 2026 until the account died.
+func TestAShortKitParksInsteadOfSpinning(t *testing.T) {
+	s := Snapshot{KitShort: true, KitShortTrip: TripTomb, KitWhy: "the item rule could not fill the tomb kit"}
+	st := StepFor(wait("the tomb kit is short: "+s.KitWhy), s)
+	if st.Kind != questplan.StepWait || st.ParkFor != KitShortParkFor {
+		t.Fatalf("step %+v: want a wait that parks for %s", st, KitShortParkFor)
+	}
+	if plain := StepFor(wait("something else"), Snapshot{}); plain.ParkFor != 0 {
+		t.Fatalf("an ordinary wait parks: %+v", plain)
+	}
+}

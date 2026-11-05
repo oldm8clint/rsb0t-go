@@ -53,9 +53,10 @@ func SkillXP(stat int, xp int64) Item {
 // ClaimsExperience reports whether a drop's source is a skill card that takes the skill's
 // experience as its XP: a gathering, production or thieving source that names a skill the game has,
 // except the Prayer card (its burials carry theirs) and the Combat spells mirror row (the npc it
-// repeats takes the experience).
+// repeats takes the experience). The Superheat Item mirror DOES claim: the cast's Magic experience is
+// its own, and the bars' Smithing experience goes to the Smithing row.
 func ClaimsExperience(s Source) (stat int, ok bool) {
-	if s.Skill == "" || s.MirrorsCost() || strings.EqualFold(s.Skill, SkillPrayer) {
+	if s.Skill == "" || (s.MirrorsCost() && s.Action != ActionSuperheatCast) || strings.EqualFold(s.Skill, SkillPrayer) {
 		return 0, false
 	}
 	switch s.Kind {

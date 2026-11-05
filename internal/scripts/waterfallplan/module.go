@@ -3,6 +3,8 @@ package waterfallplan
 import (
 	"fmt"
 	"sort"
+	"strings"
+	"time"
 
 	"rsb0t-go/internal/scripts/questplan"
 	"rsb0t-go/internal/scripts/tile"
@@ -141,6 +143,10 @@ var Record = questplan.Record{
 	},
 }
 
+// The record is registered with questplan so the requirement model (questplan.RequirementsOf) sees Waterfall's hitpoints and defence
+// floors beside every other quest's: questplan cannot import this package, so this package tells it.
+func init() { questplan.RegisterRecord(Record) }
+
 // Module builds the engine module with the given settings.
 func Module(set Settings) questplan.Module {
 	set = set.Normalised()
@@ -237,13 +243,22 @@ func expectName(id int) string {
 	return ItemName(id)
 }
 
+// KitShortParkFor is how long the quest parks when a kit could not be filled.
+const KitShortParkFor = 20 * time.Minute
+
 // StepFor turns one leg into the engine step that performs it.
 func StepFor(d Decision, s Snapshot) questplan.Step {
 	switch d.Leg {
 	case LegDone:
 		return questplan.Step{Kind: questplan.StepDone}
 	case LegWait:
-		return questplan.Step{Kind: questplan.StepWait, Reason: "waterfall: " + d.Why}
+		st := questplan.Step{Kind: questplan.StepWait, Reason: "waterfall: " + d.Why}
+		if s.KitShort && strings.Contains(d.Why, "kit is short") {
+			// The provisioning round already tried every source: waiting on the same failed kit spun
+			// every few seconds for minutes (live 6 Nov 2026, East Ardougne market), so the quest parks.
+			st.ParkFor = KitShortParkFor
+		}
+		return st
 	case LegStrandedBnk:
 		return questplan.Step{Kind: questplan.StepWait, Reason: "waterfall: stranded on the tree bank without a rope"}
 
