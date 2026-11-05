@@ -2,7 +2,7 @@
 
 > **rsb0t-go**, said "RS bot go".
 
-> **Watch the launch video:** https://youtu.be/oh_qeoAd04I
+[![Watch the rsb0t-go launch video](https://img.youtube.com/vi/oh_qeoAd04I/maxresdefault.jpg)](https://youtu.be/oh_qeoAd04I)
 
 A headless client for RuneScape 2 private servers on **revision 289**, such as the many servers built on the
 LostCity engine (Engine-TS 289). Point it at any such server. It speaks the game's WebSocket protocol directly,
